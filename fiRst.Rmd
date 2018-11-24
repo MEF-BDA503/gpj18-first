@@ -1,7 +1,7 @@
 ---
 title: "InitialAnalysis"
-author: "Efehan DanÄ±ÅŸman"
-date: "11 KasÄ±m 2018"
+author: "Efehan Danýþman"
+date: "11 Kasým 2018"
 output: html_document
 ---
 
@@ -36,34 +36,45 @@ Objectives of this project is as follows:
 ```{r Getting the Data}
 # Create a temporary file
 tmp<-tempfile(fileext=".csv")
-
 # Download file from repository to the temp file
 download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_candidates/ArizaBakim-01012008-01012018.csv?raw=true",destfile=tmp)
-
 ```
 
 ```{r Initial Cleaning and Analysis}
 # Reading data. Encoding as Latin-1 is crucial in order to see Turkish characters properly.
 cuts<-read.csv(tmp, encoding= "Latin-1")
-
 # Checking what we have as data.
 str(cuts)
-
 # Change type of time and date
-cuts$Olay.BaÅŸlangÄ±Ã§.Tarihi <- dmy_hm(cuts$Olay.BaÅŸlangÄ±Ã§.Tarihi)
-cuts$Olay.BitiÅŸ.Tarihi <- dmy_hm(cuts$Olay.BitiÅŸ.Tarihi)
+cuts$Olay.Baþlangýç.Tarihi <- dmy_hm(cuts$Olay.Baþlangýç.Tarihi)
+cuts$Olay.Bitiþ.Tarihi <- dmy_hm(cuts$Olay.Bitiþ.Tarihi)
+# Turn power capacity variables into numeric
+cuts$Ýþletmedeki.Kurulu.Güç <- gsub(",","",cuts$Ýþletmedeki.Kurulu.Güç) 
+cuts$Olay.Sýrasýnda.Kapasite<- gsub(",","",cuts$Olay.Sýrasýnda.Kapasite) 
+cuts$Ýþletmedeki.Kurulu.Güç <- as.numeric(as.character(cuts$Ýþletmedeki.Kurulu.Güç))
+cuts$Olay.Sýrasýnda.Kapasite <- as.numeric(as.character(cuts$Olay.Sýrasýnda.Kapasite))
+
 
 # Looks like data is until beginning of the 2018 and we have between 10-12K cuts per year between 2014 and 2017.
-yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.BaÅŸlangÄ±Ã§.Tarihi,"year")) %>% summarize(Olay.BaÅŸlangÄ±Ã§.Tarihi=n())
+yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.Baþlangýç.Tarihi,"year")) %>% summarize(Olay.Baþlangýç.Tarihi=n())
 yearly_cuts
 ```
 
 ```{r Plot}
 # Let's put the yearly cuts into a bar graph.
-ggplot(data=yearly_cuts, aes(y=Olay.BaÅŸlangÄ±Ã§.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
+ggplot(data=yearly_cuts, aes(y=Olay.Baþlangýç.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
   geom_bar(stat="identity")+
   labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
   theme_light()+
   scale_fill_brewer(palette="PuBuGn")+
   theme(legend.position="none")
+```
+
+```{r New Variables For Calculations}
+#Adding süre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
+
+cuts <- cuts %>% mutate(sure = difftime(Olay.Bitiþ.Tarihi,Olay.Baþlangýç.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.Sýrasýnda.Kapasite / Ýþletmedeki.Kurulu.Güç)
+
+# Make all strings lower case so that can be cleaned easier.
+cuts <- mutate_all(cuts, funs(tolower))                   
 ```
