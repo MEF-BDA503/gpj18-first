@@ -1,7 +1,7 @@
 ---
 title: "InitialAnalysis"
-author: "Efehan DanÄ±ÅŸman"
-date: "11 KasÄ±m 2018"
+author: "Efehan Danışman"
+date: "11 Kasım 2018"
 output: html_document
 ---
 
@@ -37,32 +37,39 @@ Objectives of this project is as follows:
 # Create a temporary file
 tmp<-tempfile(fileext=".csv")
 # Download file from repository to the temp file
-download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_candidates/ArizaBakim-01012008-01012018.csv?raw=true",destfile=tmp)
+download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_candidates/ArizaBakim-01012008-25112018.csv?raw=True",destfile=tmp)
 ```
 
 ```{r Initial Cleaning and Analysis}
 # Reading data. Encoding as Latin-1 is crucial in order to see Turkish characters properly.
-cuts<-read.csv(tmp, encoding= "Latin-1")
+cuts<-read.csv(tmp, encoding= "Latin-1", header=TRUE,row.names=NULL,sep=";")
 # Checking what we have as data.
 str(cuts)
-# Change type of time and date
-cuts$Olay.BaÅŸlangÄ±Ã§.Tarihi <- dmy_hm(cuts$Olay.BaÅŸlangÄ±Ã§.Tarihi)
-cuts$Olay.BitiÅŸ.Tarihi <- dmy_hm(cuts$Olay.BitiÅŸ.Tarihi)
-# Turn power capacity variables into numeric
-cuts$Ä°ÅŸletmedeki.Kurulu.GÃ¼Ã§ <- gsub(",","",cuts$Ä°ÅŸletmedeki.Kurulu.GÃ¼Ã§) 
-cuts$Olay.SÄ±rasÄ±nda.Kapasite<- gsub(",","",cuts$Olay.SÄ±rasÄ±nda.Kapasite) 
-cuts$Ä°ÅŸletmedeki.Kurulu.GÃ¼Ã§ <- as.numeric(as.character(cuts$Ä°ÅŸletmedeki.Kurulu.GÃ¼Ã§))
-cuts$Olay.SÄ±rasÄ±nda.Kapasite <- as.numeric(as.character(cuts$Olay.SÄ±rasÄ±nda.Kapasite))
+# Convert type of time and date to date
+cuts$Olay.Başlangıç.Tarihi <- dmy_hm(cuts$Olay.Başlangıç.Tarihi)
+cuts$Olay.Bitiş.Tarihi <- dmy_hm(cuts$Olay.Bitiş.Tarihi)
 
+# Turn power capacity variables into numeric. First clean the dots so they will not be considered as decimals while separating thousands. Then turn commas into dots so that we can have proper decimals.
+
+cuts$İşletmedeki.Kurulu.Güç <- gsub("\\.","",cuts$İşletmedeki.Kurulu.Güç) 
+cuts$Olay.Sırasında.Kapasite<- gsub("\\.","",cuts$Olay.Sırasında.Kapasite) 
+cuts$İşletmedeki.Kurulu.Güç <- gsub(",",".",cuts$İşletmedeki.Kurulu.Güç) 
+cuts$Olay.Sırasında.Kapasite<- gsub(",",".",cuts$Olay.Sırasında.Kapasite) 
+cuts$İşletmedeki.Kurulu.Güç <- as.numeric(as.character(cuts$İşletmedeki.Kurulu.Güç))
+cuts$Olay.Sırasında.Kapasite <- as.numeric(as.character(cuts$Olay.Sırasında.Kapasite))
+
+#Verify that we finally have numeric values.
+str(cuts$İşletmedeki.Kurulu.Güç)
+str(cuts$Olay.Sırasında.Kapasite)
 
 # Looks like data is until beginning of the 2018 and we have between 10-12K cuts per year between 2014 and 2017.
-yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.BaÅŸlangÄ±Ã§.Tarihi,"year")) %>% summarize(Olay.BaÅŸlangÄ±Ã§.Tarihi=n())
+yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.Başlangıç.Tarihi,"year")) %>% summarize(Olay.Başlangıç.Tarihi=n())
 yearly_cuts
 ```
 
 ```{r Plot}
 # Let's put the yearly cuts into a bar graph.
-ggplot(data=yearly_cuts, aes(y=Olay.BaÅŸlangÄ±Ã§.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
+ggplot(data=yearly_cuts, aes(y=Olay.Başlangıç.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
   geom_bar(stat="identity")+
   labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
   theme_light()+
@@ -71,17 +78,23 @@ ggplot(data=yearly_cuts, aes(y=Olay.BaÅŸlangÄ±Ã§.Tarihi, x=factor(year(year)), f
 ```
 
 ```{r New Variables For Calculations}
-#Adding sÃ¼re variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
-
-cuts <- cuts %>% mutate(sure = difftime(Olay.BitiÅŸ.Tarihi,Olay.BaÅŸlangÄ±Ã§.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.SÄ±rasÄ±nda.Kapasite / Ä°ÅŸletmedeki.Kurulu.GÃ¼Ã§)
-
+#Adding süre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
+cuts <- cuts %>% mutate(sure = difftime(Olay.Bitiş.Tarihi,Olay.Başlangıç.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.Sırasında.Kapasite / İşletmedeki.Kurulu.Güç)
 # Make all strings lower case so that can be cleaned easier.
-cuts <- mutate_all(cuts, funs(tolower))                   
+cuts <- mutate_all(cuts, funs(tolower))
+
 ```
 
 ```{r Fuzzy string matching}
-#Detect similiar names with Fuzzy Text matching
-uniqueNames <- unique(cuts$Santral.Ä°smi)
+
+#Delete empty rows according to station names. At some rows, ther is only reason of the cut without any additional information. Since we can not do much with them and number of them is not significant (292 observation, less than 1%), we omitted them.
+
+cuts <- cuts[-which(cuts$UEVÇB == ""), ]
+cuts <- cuts[!apply(cuts == "", 1, all),]
+
+#Detect similiar names with Fuzzy Text matching.
+
+uniqueNames <- unique(cuts$Santral.İsmi)
 name_distances <- list()
 i <- 1
 for (ind in uniqueNames){
@@ -91,48 +104,59 @@ for (ind in uniqueNames){
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
 #Fixing detected string issues.
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("Ä°", "i", x)
+   gsub("İ", "i", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
    gsub("enerj.sa", "enerjisa", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("yenikÃ¶y ts", "yenikÃ¶y tes", x)
+   gsub("yeniköy ts", "yeniköy tes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
    gsub("^ova elektrik", "gebze ova elektrik", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("yataÄŸan .*", "yataÄŸan tes", x)
+   gsub("yatağan .*", "yatağan tes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("kÃ¶klÃ¼ce$", "kÃ¶klÃ¼ce hes", x)
+   gsub("köklüce$", "köklüce hes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
    gsub(".* entek", "entek", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("kÃ¼rtÃ¼n-hes", "kÃ¼rtÃ¼n hes", x)
+   gsub("kürtün-hes", "kürtün hes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
    gsub("^rwe_turcas_guney", "denizli rwe_turcas_guney", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("tekirdaÄŸ santrali.*", "modern enerji tekirdaÄŸ santrali", x)
+   gsub("tekirdağ santrali.*", "modern enerji tekirdağ santrali", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
    gsub("kangal .*", "kangal tes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("karadaÄŸ$", "karadaÄŸ res", x)
+   gsub("karadağ$", "karadağ res", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("Ã§atalaÄŸzi ts", "Ã§atalaÄŸzÄ± tes", x)
+   gsub("çatalağzi ts", "çatalağzı tes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("termik santral[Ä±i]", "tes", x)
+   gsub("termik santral[ıi]", "tes", x)
  }))
 cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("hidro(elektrik santral[Ä±i]| e\\.?s)", "hes", x)
+   gsub("hidro(elektrik santral[ıi]| e\\.?s)", "hes", x)
  }))
+```
+
+
+```{r Word count of cut reasons}
+
+library(splitstackshape)
+gerekcewordcount <- cSplit(cuts, "Gerekçe", sep = " ", direction = "long") %>%
+      group_by(Gerekçe) %>%
+      summarise(Count = n())
+
+arrange(gerekcewordcount,desc(Count))
 ```
