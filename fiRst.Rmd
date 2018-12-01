@@ -1,7 +1,7 @@
 ---
 title: "InitialAnalysis"
-author: "Efehan Danışman"
-date: "11 Kasım 2018"
+author: "Efehan DanÃ½Ã¾man"
+date: "11 KasÃ½m 2018"
 output: html_document
 ---
 
@@ -14,6 +14,9 @@ library(scales)
 library(knitr)
 library(lubridate)
 library(RColorBrewer)
+library(plotly)
+library(stringr)
+library(splitstackshape)
 ```
 
 ## R Markdown
@@ -46,30 +49,30 @@ cuts<-read.csv(tmp, encoding= "Latin-1", header=TRUE,row.names=NULL,sep=";")
 # Checking what we have as data.
 str(cuts)
 # Convert type of time and date to date
-cuts$Olay.Başlangıç.Tarihi <- dmy_hm(cuts$Olay.Başlangıç.Tarihi)
-cuts$Olay.Bitiş.Tarihi <- dmy_hm(cuts$Olay.Bitiş.Tarihi)
+cuts$Olay.BaÃ¾langÃ½Ã§.Tarihi <- dmy_hm(cuts$Olay.BaÃ¾langÃ½Ã§.Tarihi)
+cuts$Olay.BitiÃ¾.Tarihi <- dmy_hm(cuts$Olay.BitiÃ¾.Tarihi)
 
 # Turn power capacity variables into numeric. First clean the dots so they will not be considered as decimals while separating thousands. Then turn commas into dots so that we can have proper decimals.
 
-cuts$İşletmedeki.Kurulu.Güç <- gsub("\\.","",cuts$İşletmedeki.Kurulu.Güç) 
-cuts$Olay.Sırasında.Kapasite<- gsub("\\.","",cuts$Olay.Sırasında.Kapasite) 
-cuts$İşletmedeki.Kurulu.Güç <- gsub(",",".",cuts$İşletmedeki.Kurulu.Güç) 
-cuts$Olay.Sırasında.Kapasite<- gsub(",",".",cuts$Olay.Sırasında.Kapasite) 
-cuts$İşletmedeki.Kurulu.Güç <- as.numeric(as.character(cuts$İşletmedeki.Kurulu.Güç))
-cuts$Olay.Sırasında.Kapasite <- as.numeric(as.character(cuts$Olay.Sırasında.Kapasite))
+cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§ <- gsub("\\.","",cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§) 
+cuts$Olay.SÃ½rasÃ½nda.Kapasite<- gsub("\\.","",cuts$Olay.SÃ½rasÃ½nda.Kapasite) 
+cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§ <- gsub(",",".",cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§) 
+cuts$Olay.SÃ½rasÃ½nda.Kapasite<- gsub(",",".",cuts$Olay.SÃ½rasÃ½nda.Kapasite) 
+cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§ <- as.numeric(as.character(cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§))
+cuts$Olay.SÃ½rasÃ½nda.Kapasite <- as.numeric(as.character(cuts$Olay.SÃ½rasÃ½nda.Kapasite))
 
 #Verify that we finally have numeric values.
-str(cuts$İşletmedeki.Kurulu.Güç)
-str(cuts$Olay.Sırasında.Kapasite)
+str(cuts$ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§)
+str(cuts$Olay.SÃ½rasÃ½nda.Kapasite)
 
 # Looks like data is until beginning of the 2018 and we have between 10-12K cuts per year between 2014 and 2017.
-yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.Başlangıç.Tarihi,"year")) %>% summarize(Olay.Başlangıç.Tarihi=n())
+yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.BaÃ¾langÃ½Ã§.Tarihi,"year")) %>% summarize(Olay.BaÃ¾langÃ½Ã§.Tarihi=n())
 yearly_cuts
 ```
 
 ```{r Plot}
 # Let's put the yearly cuts into a bar graph.
-ggplot(data=yearly_cuts, aes(y=Olay.Başlangıç.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
+ggplot(data=yearly_cuts, aes(y=Olay.BaÃ¾langÃ½Ã§.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
   geom_bar(stat="identity")+
   labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
   theme_light()+
@@ -78,23 +81,21 @@ ggplot(data=yearly_cuts, aes(y=Olay.Başlangıç.Tarihi, x=factor(year(year)), fill
 ```
 
 ```{r New Variables For Calculations}
-#Adding süre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
-cuts <- cuts %>% mutate(sure = difftime(Olay.Bitiş.Tarihi,Olay.Başlangıç.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.Sırasında.Kapasite / İşletmedeki.Kurulu.Güç)
+#Adding sÃ¼re variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
+cuts <- cuts %>% mutate(sure = difftime(Olay.BitiÃ¾.Tarihi,Olay.BaÃ¾langÃ½Ã§.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.SÃ½rasÃ½nda.Kapasite / ÃÃ¾letmedeki.Kurulu.GÃ¼Ã§)
 # Make all strings lower case so that can be cleaned easier.
 cuts <- mutate_all(cuts, funs(tolower))
+#Remove rows that contain NA's
+cuts <- na.omit(cuts)
+#Drop UEVÃ‡B column, we do not think it will be any help for analysis.
+cuts <- subset(cuts, select=-UEVÃ‡B)
 
 ```
 
 ```{r Fuzzy string matching}
 
-#Delete empty rows according to station names. At some rows, ther is only reason of the cut without any additional information. Since we can not do much with them and number of them is not significant (292 observation, less than 1%), we omitted them.
-
-cuts <- cuts[-which(cuts$UEVÇB == ""), ]
-cuts <- cuts[!apply(cuts == "", 1, all),]
-
-#Detect similiar names with Fuzzy Text matching.
-
-uniqueNames <- unique(cuts$Santral.İsmi)
+#Detect similiar names with Fuzzy Text matching
+uniqueNames <- unique(cuts$Santral.Ä°smi)
 name_distances <- list()
 i <- 1
 for (ind in uniqueNames){
@@ -103,60 +104,54 @@ for (ind in uniqueNames){
 }
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
 #Fixing detected string issues.
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("İ", "i", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("enerj.sa", "enerjisa", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("yeniköy ts", "yeniköy tes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("^ova elektrik", "gebze ova elektrik", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("yatağan .*", "yatağan tes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("köklüce$", "köklüce hes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub(".* entek", "entek", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("kürtün-hes", "kürtün hes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("^rwe_turcas_guney", "denizli rwe_turcas_guney", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("tekirdağ santrali.*", "modern enerji tekirdağ santrali", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("kangal .*", "kangal tes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("karadağ$", "karadağ res", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("çatalağzi ts", "çatalağzı tes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("termik santral[ıi]", "tes", x)
- }))
-cuts <- data.frame(lapply(cuts, function(x) {
-   gsub("hidro(elektrik santral[ıi]| e\\.?s)", "hes", x)
- }))
+cuts$Santral.Ä°smi <- cuts$Santral.Ä°smi %>% 
+  str_replace_all("[Ä°Ä±]", "i") %>%
+  str_replace_all("enerj.sa", "enerjisa") %>%
+  str_replace_all("yenikÃ¶y ts", "yenikÃ¶y tes") %>%
+  str_replace_all("^ova elektrik", "gebze ova elektrik") %>%
+  str_replace_all("yataÄŸan .*", "yataÄŸan tes") %>%
+  str_replace_all("kÃ¶klÃ¼ce$", "kÃ¶klÃ¼ce hes") %>%
+  str_replace_all(".* entek", "entek") %>%
+  str_replace_all("kÃ¼rtÃ¼n-hes", "kÃ¼rtÃ¼n hes") %>%
+  str_replace_all("^rwe_turcas_guney", "denizli rwe_turcas_guney") %>%
+  str_replace_all("tekirdaÄŸ santrali.*", "modern enerji tekirdaÄŸ santrali") %>%
+  str_replace_all("karadaÄŸ$", "karadaÄŸ res") %>%
+  str_replace_all(".?menzelet( hes)?", "menzelet hes") %>%
+  str_replace_all("\\.", "") %>%
+  str_replace_all("hidro(\\s?elektrik santral[Ä±i]| e\\.?s)", " hes") %>%
+  str_replace_all("(termik santral[Ä±i]|\\sts\\s?)", " tes") %>%
+  str_replace_all("tunÃ§bilektes", "tunÃ§bilek tes") %>%
+  str_replace_all("d.*(k.*)?Ã§.*(s.*)?", "dgkÃ§") %>%
+  str_replace_all("jeotermal (e.*s.*)", "jes")
+  
+cuts$GerekÃ§e <- cuts$GerekÃ§e %>%
+  str_replace_all("[Ä°Ä±]", "i") %>%
+  str_replace_all("t(.r|r.)b.n", "tÃ¼rbin") %>%
+  str_replace_all("ar.zas.?.?", "ariza") %>%
+  str_replace_all("so.utma", "sogutma") %>%
+  str_replace_all("(?<!\\d)\\.", "") %>%
+  str_replace_all(".n.te", "unite") %>%
+  str_replace_all("reg.lat.r", "regulator")
 ```
 
 
 ```{r Word count of cut reasons}
 
 library(splitstackshape)
-gerekcewordcount <- cSplit(cuts, "Gerekçe", sep = " ", direction = "long") %>%
-      group_by(Gerekçe) %>%
+gerekcewordcount <- cSplit(cuts, "GerekÃ§e", sep = " ", direction = "long") %>%
+      group_by(GerekÃ§e) %>%
       summarise(Count = n())
 
 arrange(gerekcewordcount,desc(Count))
+```
+
+```{r categorise}
+#Categorising type of plants so we can do type based analysis later on.
+cuts$Plant.Type <- ifelse(grepl(" hes\\s?", cuts$Santral.Ä°smi, ignore.case = T), "HES", 
+         (ifelse(grepl(" res\\s?", cuts$Santral.Ä°smi, ignore.case = T), "RES",
+         (ifelse(grepl(" tes\\s?", cuts$Santral.Ä°smi, ignore.case = T), "TES",
+         (ifelse(grepl(" a?d.*k.*Ã§.*(s.*)?", cuts$Santral.Ä°smi, ignore.case = T), "DGKÃ‡",
+         (ifelse(grepl("jes\\s", cuts$Santral.Ä°smi, ignore.case =T), "JES",
+                "Other")))))))))
+cuts$Type <- as.factor(cuts$Type)
 ```
