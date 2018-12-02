@@ -1,13 +1,12 @@
 ---
 title: "InitialAnalysis"
-author: "Efehan DanÄ±ÅŸman"
-date: "11 KasÄ±m 2018"
+author: "Group fiRst"
 output: html_document
 ---
 # fiRst Group Project 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
 library(tidyverse)
 library(readxl)
 library(forcats)
@@ -50,7 +49,7 @@ download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_can
 ```{r Initial Cleaning and Analysis}
 # Reading data. Encoding as Latin-1 is crucial in order to see Turkish characters properly.
 cuts<-read.csv(tmp, encoding= "Latin-1", sep = ";")
-colnames(cuts) <-c("Plant.Name","UEVÇB","Start.Date","End.Date","Established.Power","Power.atOutage","Reason")
+colnames(cuts) <-c("Plant.Name","UEVCB","Start.Date","End.Date","Established.Power","Power.atOutage","Reason")
 # Checking what we have as data.
 str(cuts)
 # Change type of time and date
@@ -67,8 +66,8 @@ cuts$Power.atOutage <-as.numeric(levels(cuts$Power.atOutage))[cuts$Power.atOutag
 #cuts[c("Established.Power","Power.atOutage")]<-cuts[c("Established.Power","Power.atOutage")]/100
 # Removing data that contains NA's.
 cuts <- na.omit(cuts)
-#Drop UEVÇB column, we do not think it will be any help for analysis.
-cuts <- subset(cuts, select=-UEVÇB)
+#Drop UEVÃ‡B column, we do not think it will be any help for analysis.
+cuts <- subset(cuts, select=-UEVCB)
 # Let's check the data for yearly total cuts.
 yearly_cuts <- cuts %>% group_by(year=floor_date(Start.Date,"year")) %>% summarize(Start.Date=n())
 yearly_cuts
@@ -90,7 +89,7 @@ ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(yea
 The database has mostly text based data. Initial overview of the database shows a lot of errors, some of which come from localization problems, others simply misspelled. In this part, we've attempted to make it more tidy by making plant names more distinct, cut reasons more clear.
 
 ```{r New Variables For Calculations}
-#Adding süre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
+#Adding sÃ¼re variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
 
 cuts <- cuts %>% mutate(sure = difftime(End.Date,Start.Date,units="hours")) %>% mutate(kapasiteorani = Power.atOutage / Established.Power)
 cuts$kapasiteorani <- percent(cuts$kapasiteorani)
@@ -115,28 +114,28 @@ for (ind in uniqueNames){
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
 #Fixing detected string issues.
 cuts$Plant.Name <- cuts$Plant.Name %>% 
-  str_replace_all("[Ýý]", "i") %>%
+  str_replace_all("[Ä°Ä±]", "i") %>%
   str_replace_all("enerj.sa", "enerjisa") %>%
-  str_replace_all("yeniköy ts", "yeniköy tes") %>%
+  str_replace_all("yenikÃ¶y ts", "yenikÃ¶y tes") %>%
   str_replace_all("^ova elektrik", "gebze ova elektrik") %>%
-  str_replace_all("yataðan .*", "yataðan tes") %>%
-  str_replace_all("köklüce$", "köklüce hes") %>%
+  str_replace_all("yataÄŸan .*", "yataÄŸan tes") %>%
+  str_replace_all("kÃ¶klÃ¼ce$", "kÃ¶klÃ¼ce hes") %>%
   str_replace_all(".* entek", "entek") %>%
-  str_replace_all("kürtün-hes", "kürtün hes") %>%
+  str_replace_all("kÃ¼rtÃ¼n-hes", "kÃ¼rtÃ¼n hes") %>%
   str_replace_all("^rwe_turcas_guney", "denizli rwe_turcas_guney") %>%
-  str_replace_all("tekirdað santrali.*", "modern enerji tekirdað santrali") %>%
-  str_replace_all("karadað$", "karadað res") %>%
+  str_replace_all("tekirdaÄŸ santrali.*", "modern enerji tekirdaÄŸ santrali") %>%
+  str_replace_all("karadaÄŸ$", "karadaÄŸ res") %>%
   str_replace_all(".?menzelet( hes)?", "menzelet hes") %>%
   str_replace_all("\\.", "") %>%
-  str_replace_all("hidro(\\s?elektrik santral[ýi]| e\\.?s)", " hes") %>%
-  str_replace_all("(termik santral[ýi]|\\sts\\s?)", " tes") %>%
-  str_replace_all("tunçbilektes", "tunçbilek tes") %>%
-  str_replace_all("d.*(k.*)?ç.*(s.*)?", "dgkç") %>%
+  str_replace_all("hidro(\\s?elektrik santral[Ä±i]| e\\.?s)", " hes") %>%
+  str_replace_all("(termik santral[Ä±i]|\\sts\\s?)", " tes") %>%
+  str_replace_all("tunÃ§bilektes", "tunÃ§bilek tes") %>%
+  str_replace_all("d.*(k.*)?Ã§.*(s.*)?", "dgkÃ§") %>%
   str_replace_all("jeotermal (e.*s.*)", "jes")
   
 cuts$Reason <- cuts$Reason %>%
-  str_replace_all("[Ýý]", "i") %>%
-  str_replace_all("t(.r|r.)b.n", "türbin") %>%
+  str_replace_all("[Ä°Ä±]", "i") %>%
+  str_replace_all("t(.r|r.)b.n", "tÃ¼rbin") %>%
   str_replace_all("ar.zas.?.?", "ariza") %>%
   str_replace_all("so.utma", "sogutma") %>%
   str_replace_all("(?<!\\d)\\.", "") %>%
@@ -144,7 +143,7 @@ cuts$Reason <- cuts$Reason %>%
   str_replace_all("reg.lat.r", "regulator")
 ```
 
-In order to categorise te reasons, we performed a word count Gerekçe column, laying out most encountered words.
+In order to categorise te reasons, we performed a word count GerekÃ§e column, laying out most encountered words.
 
 ```{r Word count of cut reasons}
 gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
@@ -159,7 +158,7 @@ The abbreviations are as following:
 HES : Hydroelectricty Plant
 RES : Wind Energy Plant
 TES : Thermal Power Plant
-DGKÇ: Natural Gas Combined Cycle Plant
+DGKÃ‡: Natural Gas Combined Cycle Plant
 JES : Geothermal Energy Plant
 BES : Biomass Energy Plant
 
@@ -168,9 +167,9 @@ BES : Biomass Energy Plant
 cuts$Type <- ifelse(grepl(" hes\\s?", cuts$Plant.Name, ignore.case = T), "HES", 
          (ifelse(grepl(" res\\s?", cuts$Plant.Name, ignore.case = T), "RES",
          (ifelse(grepl(" tes\\s?", cuts$Plant.Name, ignore.case = T), "TES",
-         (ifelse(grepl(" a?d.*k.*ç.*(s.*)?", cuts$Plant.Name, ignore.case = T), "DGKÇ",
+         (ifelse(grepl(" a?d.*k.*Ã§.*(s.*)?", cuts$Plant.Name, ignore.case = T), "DGKÃ‡",
          (ifelse(grepl("(jes\\s|jeotermal)", cuts$Plant.Name, ignore.case =T), "JES",
-         (ifelse(grepl("biyokütle", cuts$Plant.Name, ignore.case =T), "BES",       
+         (ifelse(grepl("biyokÃ¼tle", cuts$Plant.Name, ignore.case =T), "BES",       
                 "Other")))))))))))
 cuts$Type <- as.factor(cuts$Type)
 ```
@@ -185,12 +184,12 @@ str(cuts)
 
 Here are the explanations for variables:
 
-Santral Ýsmi              : Name of the power plant.
-Olay baþlangýç tarihi     : Start date time of the cut.
-Olay bitiþ tarihi         : End date/time of the cut.
-Ýþletmedeki kurulu güç    : Total power at the plant.
-Olay sýrasýndaki kapasite : Capacity at the time of incident
-Gerekçe                   : Reason of the cut
+Santral Ä°smi              : Name of the power plant.
+Olay baÅŸlangÄ±Ã§ tarihi     : Start date time of the cut.
+Olay bitiÅŸ tarihi         : End date/time of the cut.
+Ä°ÅŸletmedeki kurulu gÃ¼Ã§    : Total power at the plant.
+Olay sÄ±rasÄ±ndaki kapasite : Capacity at the time of incident
+GerekÃ§e                   : Reason of the cut
 sure                      : Length of the cut in hours.
 kapasiteorani             : Proportion of the capacity at the time of the cut to max capacity.
 Type                      : Type of the plant
