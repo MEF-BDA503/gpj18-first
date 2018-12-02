@@ -6,17 +6,20 @@ output: html_document
 ---
 # fiRst Group Project 
 
-```{r setup, include=FALSE,eval=TRUE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(forcats)
+library(rlang)
 library(scales)
 library(knitr)
 library(lubridate)
 library(RColorBrewer)
 library(plotly)
 library(stringr)
+library(data.table)
+library(kableExtra)
 library(splitstackshape)
 ```
 
@@ -47,33 +50,35 @@ download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_can
 ```{r Initial Cleaning and Analysis}
 # Reading data. Encoding as Latin-1 is crucial in order to see Turkish characters properly.
 cuts<-read.csv(tmp, encoding= "Latin-1", sep = ";")
+colnames(cuts) <-c("Plant.Name","UEVÇB","Start.Date","End.Date","Established.Power","Power.atOutage","Reason")
 # Checking what we have as data.
 str(cuts)
 # Change type of time and date
-cuts$Olay.Baþlangýç.Tarihi <- dmy_hm(cuts$Olay.Baþlangýç.Tarihi)
-cuts$Olay.Bitiþ.Tarihi <- dmy_hm(cuts$Olay.Bitiþ.Tarihi)
+cuts$Start.Date <- dmy_hm(cuts$Start.Date)
+cuts$End.Date<- dmy_hm(cuts$End.Date)
 # Turn power capacity variables into numeric
-cuts$Ýþletmedeki.Kurulu.Güç <- gsub("[,\\.]","",cuts$Ýþletmedeki.Kurulu.Güç) 
-cuts$Olay.Sýrasýnda.Kapasite<- gsub("[,\\.]","",cuts$Olay.Sýrasýnda.Kapasite) 
-cuts$Ýþletmedeki.Kurulu.Güç <- as.factor(cuts$Ýþletmedeki.Kurulu.Güç)
-cuts$Olay.Sýrasýnda.Kapasite <- as.factor(cuts$Olay.Sýrasýnda.Kapasite)
-cuts$Ýþletmedeki.Kurulu.Güç <-as.numeric(levels(cuts$Ýþletmedeki.Kurulu.Güç))[cuts$Ýþletmedeki.Kurulu.Güç]
-cuts$Olay.Sýrasýnda.Kapasite <-as.numeric(levels(cuts$Olay.Sýrasýnda.Kapasite))[cuts$Olay.Sýrasýnda.Kapasite]
-cuts[c("Ýþletmedeki.Kurulu.Güç","Olay.Sýrasýnda.Kapasite")]<-cuts[c("Ýþletmedeki.Kurulu.Güç","Olay.Sýrasýnda.Kapasite")]/100
+cuts$Established.Power <- str_replace(cuts$Established.Power,"[,\\.]","") 
+cuts$Power.atOutage <- str_replace(cuts$Power.atOutage,"[,\\.]","") 
+cuts$Established.Power <- as.factor(cuts$Established.Power)
+cuts$Power.atOutage <- as.factor(cuts$Power.atOutage)
+cuts$Established.Power <-as.numeric(levels(cuts$Established.Power))[cuts$Established.Power]
+cuts$Power.atOutage <-as.numeric(levels(cuts$Power.atOutage))[cuts$Power.atOutage]
+
+#cuts[c("Established.Power","Power.atOutage")]<-cuts[c("Established.Power","Power.atOutage")]/100
 # Removing data that contains NA's.
 cuts <- na.omit(cuts)
 #Drop UEVÇB column, we do not think it will be any help for analysis.
 cuts <- subset(cuts, select=-UEVÇB)
 # Let's check the data for yearly total cuts.
-yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.Baþlangýç.Tarihi,"year")) %>% summarize(Olay.Baþlangýç.Tarihi=n())
+yearly_cuts <- cuts %>% group_by(year=floor_date(Start.Date,"year")) %>% summarize(Start.Date=n())
 yearly_cuts
 ```
 
-Look like there is an average of 10-12k cuts per year in the database with the exception of 2018, where the number of cuts seems to be much higher. We believe this is simply the result of transparency platform adding more data from plants or more plants altogheter to its database in 2018 to make it more thorough.
+Look like there is an average of 10-12k cuts per year in the database with the exception of 2018, where the number of cuts seems to be much higher. We believe this is simply the result of transparency platform adding more data from plants or more plants all together to its database in 2018 to make it more thorough.
 
 ```{r Plot}
 # Let's put the yearly cuts into a bar graph.
-ggplot(data=yearly_cuts, aes(y=Olay.Baþlangýç.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
+ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(year(year))))+
   geom_bar(stat="identity")+
   labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
   theme_light()+
@@ -87,16 +92,20 @@ The database has mostly text based data. Initial overview of the database shows 
 ```{r New Variables For Calculations}
 #Adding süre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
 
-cuts <- cuts %>% mutate(sure = difftime(Olay.Bitiþ.Tarihi,Olay.Baþlangýç.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.Sýrasýnda.Kapasite / Ýþletmedeki.Kurulu.Güç)
-
+cuts <- cuts %>% mutate(sure = difftime(End.Date,Start.Date,units="hours")) %>% mutate(kapasiteorani = Power.atOutage / Established.Power)
+cuts$kapasiteorani <- percent(cuts$kapasiteorani)
 # Make all strings lower case so that can be cleaned easier.
-cuts <- cuts %>% mutate_at(.vars=c("Santral.Ýsmi", "Gerekçe"), funs(tolower)) 
+cuts <- cuts %>% mutate_at(.vars=c("Plant.Name", "Reason"), funs(tolower)) 
+
+#With new variables let's see our data.
+kable(cuts[1:5,]) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
 
 ```
 
 ```{r Wrangle}
 #Detect similiar names with Fuzzy Text matching
-uniqueNames <- unique(cuts$Santral.Ýsmi)
+uniqueNames <- unique(cuts$Plant.Name)
 name_distances <- list()
 i <- 1
 for (ind in uniqueNames){
@@ -105,7 +114,7 @@ for (ind in uniqueNames){
 }
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
 #Fixing detected string issues.
-cuts$Santral.Ýsmi <- cuts$Santral.Ýsmi %>% 
+cuts$Plant.Name <- cuts$Plant.Name %>% 
   str_replace_all("[Ýý]", "i") %>%
   str_replace_all("enerj.sa", "enerjisa") %>%
   str_replace_all("yeniköy ts", "yeniköy tes") %>%
@@ -125,7 +134,7 @@ cuts$Santral.Ýsmi <- cuts$Santral.Ýsmi %>%
   str_replace_all("d.*(k.*)?ç.*(s.*)?", "dgkç") %>%
   str_replace_all("jeotermal (e.*s.*)", "jes")
   
-cuts$Gerekçe <- cuts$Gerekçe %>%
+cuts$Reason <- cuts$Reason %>%
   str_replace_all("[Ýý]", "i") %>%
   str_replace_all("t(.r|r.)b.n", "türbin") %>%
   str_replace_all("ar.zas.?.?", "ariza") %>%
@@ -138,11 +147,10 @@ cuts$Gerekçe <- cuts$Gerekçe %>%
 In order to categorise te reasons, we performed a word count Gerekçe column, laying out most encountered words.
 
 ```{r Word count of cut reasons}
-gerekcewordcount <- cSplit(cuts, "Gerekçe", sep = " ", direction = "long") %>%
-      group_by(Gerekçe) %>%
+gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
+      group_by(Reason) %>%
       summarise(Count = n())
 arrange(gerekcewordcount,desc(Count))
-
 ```
 
 Based on the plant name, we created a new column called Type which stores the type of the plant.
@@ -157,12 +165,12 @@ BES : Biomass Energy Plant
 
 ```{r categorise Plant type}
 #Categorising type of plants so we can do type based analysis later on.
-cuts$Type <- ifelse(grepl(" hes\\s?", cuts$Santral.Ýsmi, ignore.case = T), "HES", 
-         (ifelse(grepl(" res\\s?", cuts$Santral.Ýsmi, ignore.case = T), "RES",
-         (ifelse(grepl(" tes\\s?", cuts$Santral.Ýsmi, ignore.case = T), "TES",
-         (ifelse(grepl(" a?d.*k.*ç.*(s.*)?", cuts$Santral.Ýsmi, ignore.case = T), "DGKÇ",
-         (ifelse(grepl("(jes\\s|jeotermal)", cuts$Santral.Ýsmi, ignore.case =T), "JES",
-         (ifelse(grepl("biyokütle", cuts$Santral.Ýsmi, ignore.case =T), "BES",       
+cuts$Type <- ifelse(grepl(" hes\\s?", cuts$Plant.Name, ignore.case = T), "HES", 
+         (ifelse(grepl(" res\\s?", cuts$Plant.Name, ignore.case = T), "RES",
+         (ifelse(grepl(" tes\\s?", cuts$Plant.Name, ignore.case = T), "TES",
+         (ifelse(grepl(" a?d.*k.*ç.*(s.*)?", cuts$Plant.Name, ignore.case = T), "DGKÇ",
+         (ifelse(grepl("(jes\\s|jeotermal)", cuts$Plant.Name, ignore.case =T), "JES",
+         (ifelse(grepl("biyokütle", cuts$Plant.Name, ignore.case =T), "BES",       
                 "Other")))))))))))
 cuts$Type <- as.factor(cuts$Type)
 ```
@@ -184,13 +192,13 @@ Olay bitiþ tarihi         : End date/time of the cut.
 Olay sýrasýndaki kapasite : Capacity at the time of incident
 Gerekçe                   : Reason of the cut
 sure                      : Length of the cut in hours.
-kapasiteoraný             : Proportion of the capacity at the time of the cut to max capacity.
+kapasiteorani             : Proportion of the capacity at the time of the cut to max capacity.
 Type                      : Type of the plant
 
 ```{r Capacity of Plants based on type}
 cuts %>%
   group_by(Type) %>%
-  summarize(Mean=mean(Ýþletmedeki.Kurulu.Güç)) %>%
+  summarize(Mean=mean(Established.Power)) %>%
   ggplot(., aes(x=reorder(Type, -Mean), y=Mean, fill=Type))+
     geom_bar(stat="identity")+
     labs(x="Plant Type", y="Power Output MWe", title="Average Power Output Based on Plant Type in Turkey")+
@@ -198,4 +206,33 @@ cuts %>%
     scale_fill_brewer(palette="Greens")+
     theme(legend.position="none")
 ```
+
+There are two types of cuts at the overall level. Either due to a malfunction or due to planned maintenance. Let's separate them according to type of cut. We searched for words "bakim" at the reason of cut and assigned "Planned Maintenance" as variable to a new column. All others are assigned "Malfunction".
+
+```{r Types of Cuts}
+bakim <- c("bakim","bakim")
+cuts <- cuts%>% mutate(TypeofCut= ifelse(str_detect(Reason,paste(bakim,collapse="|")),"Planned Maintenance","Malfunction"))
+
+```
+
+Our histogram that shows distribution of the cuts durations looks messy due to outliers. Here is a quick workaround by fixing outliers to a maximum value inspired by https://edwinth.github.io/blog/outlier-bin/. Same person has a nice package to deal with such situations, however its dependencies does not work with Shiny.
+
+It looks like number of cuts are mostly between 0-5 hour with some outliers. Looks like most malfunctions are solved in less than 5 hours.When we look at the capacity usage ratio at the malfunctions, there is a stack between 0-10%. However except that distribution is close to normal.
+```{r Visualizing Duration of Cuts and Capacity Usage Ratio According to Cut Type}
+cuts %>% mutate(sure_outlierfixed = ifelse(sure > 24, 24, sure))%>%
+ggplot(aes(x=sure_outlierfixed))+
+  geom_histogram()+
+  facet_wrap(~TypeofCut)
+
+#Note this part has to be polished.
+cuts$kapasiteorani <- as.numeric(sub("%","",cuts$kapasiteorani))/100
+ggplot(cuts,aes(x=kapasiteorani))+
+  geom_histogram()+
+  facet_wrap(~TypeofCut)+
+    scale_x_continuous(limits = c(0,1))
+
+
+```
+
+
 
