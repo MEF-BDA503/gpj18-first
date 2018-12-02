@@ -1,9 +1,10 @@
 ---
 title: "InitialAnalysis"
-author: "Efehan Dan√Ω√æman"
-date: "11 Kas√Ωm 2018"
+author: "Efehan Danƒ±≈üman"
+date: "11 Kasƒ±m 2018"
 output: html_document
 ---
+# fiRst Group Project 
 
 ```{r setup, include=FALSE,eval=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -19,20 +20,20 @@ library(stringr)
 library(splitstackshape)
 ```
 
-## R Markdown
+## Dataset Overview
 
-We obtained electricty cuts data in Turkey between 2012 and 2018 from the Energy Transparency Platform. Data contain 51630 rows and 7 variables.
+We obtained energy plant cuts data in Turkey between 2012 and 2018 from the Energy Transparency Platform. Data contains 73311 rows and 7 variables.
 
 Objectives of this project is as follows:
 
 # Learning Objectives
 * Cleaning dirty data and doing text mining in order to extract insights.
 * Visualizing data according to different variables.
-* Visualizing geographical data over the map.
+* Performing exploratory and explanatory analysis on a mostly untidy dataset.
 
 # Analysis Objectives
 * Finding longest and shortest cuts and visualizing them.
-* Visualizing cuts at the power plants according to city and duration.
+* Visualizing cuts at the power plants according to plant, plant type and duration.
 * Finding top reasons of electricity cuts with tidy text mining.
 * Analyzing cuts vis-a-vis to capacity and total power at the power plant.
 
@@ -40,62 +41,62 @@ Objectives of this project is as follows:
 # Create a temporary file
 tmp<-tempfile(fileext=".csv")
 # Download file from repository to the temp file
-download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_candidates/ArizaBakim-01012008-25112018.csv?raw=True",destfile=tmp)
+download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/dataset_candidates/ArizaBakim-01012008-25112018.csv?raw=true",destfile=tmp)
 ```
 
 ```{r Initial Cleaning and Analysis}
 # Reading data. Encoding as Latin-1 is crucial in order to see Turkish characters properly.
-cuts<-read.csv(tmp, encoding= "Latin-1", header=TRUE,row.names=NULL,sep=";")
+cuts<-read.csv(tmp, encoding= "Latin-1", sep = ";")
 # Checking what we have as data.
 str(cuts)
-# Convert type of time and date to date
-cuts$Olay.Ba√ælang√Ω√ß.Tarihi <- dmy_hm(cuts$Olay.Ba√ælang√Ω√ß.Tarihi)
-cuts$Olay.Biti√æ.Tarihi <- dmy_hm(cuts$Olay.Biti√æ.Tarihi)
-
-# Turn power capacity variables into numeric. First clean the dots so they will not be considered as decimals while separating thousands. Then turn commas into dots so that we can have proper decimals.
-
-cuts$√ù√æletmedeki.Kurulu.G√º√ß <- gsub("\\.","",cuts$√ù√æletmedeki.Kurulu.G√º√ß) 
-cuts$Olay.S√Ωras√Ωnda.Kapasite<- gsub("\\.","",cuts$Olay.S√Ωras√Ωnda.Kapasite) 
-cuts$√ù√æletmedeki.Kurulu.G√º√ß <- gsub(",",".",cuts$√ù√æletmedeki.Kurulu.G√º√ß) 
-cuts$Olay.S√Ωras√Ωnda.Kapasite<- gsub(",",".",cuts$Olay.S√Ωras√Ωnda.Kapasite) 
-cuts$√ù√æletmedeki.Kurulu.G√º√ß <- as.numeric(as.character(cuts$√ù√æletmedeki.Kurulu.G√º√ß))
-cuts$Olay.S√Ωras√Ωnda.Kapasite <- as.numeric(as.character(cuts$Olay.S√Ωras√Ωnda.Kapasite))
-
-#Verify that we finally have numeric values.
-str(cuts$√ù√æletmedeki.Kurulu.G√º√ß)
-str(cuts$Olay.S√Ωras√Ωnda.Kapasite)
-
-# Looks like data is until beginning of the 2018 and we have between 10-12K cuts per year between 2014 and 2017.
-yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.Ba√ælang√Ω√ß.Tarihi,"year")) %>% summarize(Olay.Ba√ælang√Ω√ß.Tarihi=n())
+# Change type of time and date
+cuts$Olay.Ba˛lang˝Á.Tarihi <- dmy_hm(cuts$Olay.Ba˛lang˝Á.Tarihi)
+cuts$Olay.Biti˛.Tarihi <- dmy_hm(cuts$Olay.Biti˛.Tarihi)
+# Turn power capacity variables into numeric
+cuts$›˛letmedeki.Kurulu.G¸Á <- gsub("[,\\.]","",cuts$›˛letmedeki.Kurulu.G¸Á) 
+cuts$Olay.S˝ras˝nda.Kapasite<- gsub("[,\\.]","",cuts$Olay.S˝ras˝nda.Kapasite) 
+cuts$›˛letmedeki.Kurulu.G¸Á <- as.factor(cuts$›˛letmedeki.Kurulu.G¸Á)
+cuts$Olay.S˝ras˝nda.Kapasite <- as.factor(cuts$Olay.S˝ras˝nda.Kapasite)
+cuts$›˛letmedeki.Kurulu.G¸Á <-as.numeric(levels(cuts$›˛letmedeki.Kurulu.G¸Á))[cuts$›˛letmedeki.Kurulu.G¸Á]
+cuts$Olay.S˝ras˝nda.Kapasite <-as.numeric(levels(cuts$Olay.S˝ras˝nda.Kapasite))[cuts$Olay.S˝ras˝nda.Kapasite]
+cuts[c("›˛letmedeki.Kurulu.G¸Á","Olay.S˝ras˝nda.Kapasite")]<-cuts[c("›˛letmedeki.Kurulu.G¸Á","Olay.S˝ras˝nda.Kapasite")]/100
+# Removing data that contains NA's.
+cuts <- na.omit(cuts)
+#Drop UEV«B column, we do not think it will be any help for analysis.
+cuts <- subset(cuts, select=-UEV«B)
+# Let's check the data for yearly total cuts.
+yearly_cuts <- cuts %>% group_by(year=floor_date(Olay.Ba˛lang˝Á.Tarihi,"year")) %>% summarize(Olay.Ba˛lang˝Á.Tarihi=n())
 yearly_cuts
 ```
 
+Look like there is an average of 10-12k cuts per year in the database with the exception of 2018, where the number of cuts seems to be much higher. We believe this is simply the result of transparency platform adding more data from plants or more plants altogheter to its database in 2018 to make it more thorough.
+
 ```{r Plot}
 # Let's put the yearly cuts into a bar graph.
-ggplot(data=yearly_cuts, aes(y=Olay.Ba√ælang√Ω√ß.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
+ggplot(data=yearly_cuts, aes(y=Olay.Ba˛lang˝Á.Tarihi, x=factor(year(year)), fill=factor(year(year))))+
   geom_bar(stat="identity")+
   labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
   theme_light()+
   scale_fill_brewer(palette="PuBuGn")+
   theme(legend.position="none")
 ```
+# Data Wrangling
+
+The database has mostly text based data. Initial overview of the database shows a lot of errors, some of which come from localization problems, others simply misspelled. In this part, we've attempted to make it more tidy by making plant names more distinct, cut reasons more clear.
 
 ```{r New Variables For Calculations}
-#Adding s√ºre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
-cuts <- cuts %>% mutate(sure = difftime(Olay.Biti√æ.Tarihi,Olay.Ba√ælang√Ω√ß.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.S√Ωras√Ωnda.Kapasite / √ù√æletmedeki.Kurulu.G√º√ß)
+#Adding s¸re variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
+
+cuts <- cuts %>% mutate(sure = difftime(Olay.Biti˛.Tarihi,Olay.Ba˛lang˝Á.Tarihi,units="hours")) %>% mutate(kapasiteorani = Olay.S˝ras˝nda.Kapasite / ›˛letmedeki.Kurulu.G¸Á)
+
 # Make all strings lower case so that can be cleaned easier.
-cuts <- mutate_all(cuts, funs(tolower))
-#Remove rows that contain NA's
-cuts <- na.omit(cuts)
-#Drop UEV√áB column, we do not think it will be any help for analysis.
-cuts <- subset(cuts, select=-UEV√áB)
+cuts <- cuts %>% mutate_at(.vars=c("Santral.›smi", "GerekÁe"), funs(tolower)) 
 
 ```
 
-```{r Fuzzy string matching}
-
+```{r Wrangle}
 #Detect similiar names with Fuzzy Text matching
-uniqueNames <- unique(cuts$Santral.ƒ∞smi)
+uniqueNames <- unique(cuts$Santral.›smi)
 name_distances <- list()
 i <- 1
 for (ind in uniqueNames){
@@ -104,29 +105,29 @@ for (ind in uniqueNames){
 }
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
 #Fixing detected string issues.
-cuts$Santral.ƒ∞smi <- cuts$Santral.ƒ∞smi %>% 
-  str_replace_all("[ƒ∞ƒ±]", "i") %>%
+cuts$Santral.›smi <- cuts$Santral.›smi %>% 
+  str_replace_all("[›˝]", "i") %>%
   str_replace_all("enerj.sa", "enerjisa") %>%
-  str_replace_all("yenik√∂y ts", "yenik√∂y tes") %>%
+  str_replace_all("yenikˆy ts", "yenikˆy tes") %>%
   str_replace_all("^ova elektrik", "gebze ova elektrik") %>%
-  str_replace_all("yataƒüan .*", "yataƒüan tes") %>%
-  str_replace_all("k√∂kl√ºce$", "k√∂kl√ºce hes") %>%
+  str_replace_all("yataan .*", "yataan tes") %>%
+  str_replace_all("kˆkl¸ce$", "kˆkl¸ce hes") %>%
   str_replace_all(".* entek", "entek") %>%
-  str_replace_all("k√ºrt√ºn-hes", "k√ºrt√ºn hes") %>%
+  str_replace_all("k¸rt¸n-hes", "k¸rt¸n hes") %>%
   str_replace_all("^rwe_turcas_guney", "denizli rwe_turcas_guney") %>%
-  str_replace_all("tekirdaƒü santrali.*", "modern enerji tekirdaƒü santrali") %>%
-  str_replace_all("karadaƒü$", "karadaƒü res") %>%
+  str_replace_all("tekirda santrali.*", "modern enerji tekirda santrali") %>%
+  str_replace_all("karada$", "karada res") %>%
   str_replace_all(".?menzelet( hes)?", "menzelet hes") %>%
   str_replace_all("\\.", "") %>%
-  str_replace_all("hidro(\\s?elektrik santral[ƒ±i]| e\\.?s)", " hes") %>%
-  str_replace_all("(termik santral[ƒ±i]|\\sts\\s?)", " tes") %>%
-  str_replace_all("tun√ßbilektes", "tun√ßbilek tes") %>%
-  str_replace_all("d.*(k.*)?√ß.*(s.*)?", "dgk√ß") %>%
+  str_replace_all("hidro(\\s?elektrik santral[˝i]| e\\.?s)", " hes") %>%
+  str_replace_all("(termik santral[˝i]|\\sts\\s?)", " tes") %>%
+  str_replace_all("tunÁbilektes", "tunÁbilek tes") %>%
+  str_replace_all("d.*(k.*)?Á.*(s.*)?", "dgkÁ") %>%
   str_replace_all("jeotermal (e.*s.*)", "jes")
   
-cuts$Gerek√ße <- cuts$Gerek√ße %>%
-  str_replace_all("[ƒ∞ƒ±]", "i") %>%
-  str_replace_all("t(.r|r.)b.n", "t√ºrbin") %>%
+cuts$GerekÁe <- cuts$GerekÁe %>%
+  str_replace_all("[›˝]", "i") %>%
+  str_replace_all("t(.r|r.)b.n", "t¸rbin") %>%
   str_replace_all("ar.zas.?.?", "ariza") %>%
   str_replace_all("so.utma", "sogutma") %>%
   str_replace_all("(?<!\\d)\\.", "") %>%
@@ -134,24 +135,67 @@ cuts$Gerek√ße <- cuts$Gerek√ße %>%
   str_replace_all("reg.lat.r", "regulator")
 ```
 
+In order to categorise te reasons, we performed a word count GerekÁe column, laying out most encountered words.
 
 ```{r Word count of cut reasons}
-
-library(splitstackshape)
-gerekcewordcount <- cSplit(cuts, "Gerek√ße", sep = " ", direction = "long") %>%
-      group_by(Gerek√ße) %>%
+gerekcewordcount <- cSplit(cuts, "GerekÁe", sep = " ", direction = "long") %>%
+      group_by(GerekÁe) %>%
       summarise(Count = n())
-
 arrange(gerekcewordcount,desc(Count))
+
 ```
 
-```{r categorise}
+Based on the plant name, we created a new column called Type which stores the type of the plant.
+
+The abbreviations are as following:
+HES : Hydroelectricty Plant
+RES : Wind Energy Plant
+TES : Thermal Power Plant
+DGK«: Natural Gas Combined Cycle Plant
+JES : Geothermal Energy Plant
+BES : Biomass Energy Plant
+
+```{r categorise Plant type}
 #Categorising type of plants so we can do type based analysis later on.
-cuts$Plant.Type <- ifelse(grepl(" hes\\s?", cuts$Santral.ƒ∞smi, ignore.case = T), "HES", 
-         (ifelse(grepl(" res\\s?", cuts$Santral.ƒ∞smi, ignore.case = T), "RES",
-         (ifelse(grepl(" tes\\s?", cuts$Santral.ƒ∞smi, ignore.case = T), "TES",
-         (ifelse(grepl(" a?d.*k.*√ß.*(s.*)?", cuts$Santral.ƒ∞smi, ignore.case = T), "DGK√á",
-         (ifelse(grepl("jes\\s", cuts$Santral.ƒ∞smi, ignore.case =T), "JES",
-                "Other")))))))))
+cuts$Type <- ifelse(grepl(" hes\\s?", cuts$Santral.›smi, ignore.case = T), "HES", 
+         (ifelse(grepl(" res\\s?", cuts$Santral.›smi, ignore.case = T), "RES",
+         (ifelse(grepl(" tes\\s?", cuts$Santral.›smi, ignore.case = T), "TES",
+         (ifelse(grepl(" a?d.*k.*Á.*(s.*)?", cuts$Santral.›smi, ignore.case = T), "DGK«",
+         (ifelse(grepl("(jes\\s|jeotermal)", cuts$Santral.›smi, ignore.case =T), "JES",
+         (ifelse(grepl("biyok¸tle", cuts$Santral.›smi, ignore.case =T), "BES",       
+                "Other")))))))))))
 cuts$Type <- as.factor(cuts$Type)
 ```
+
+# Data Analysis
+
+Let's take a look at our final dataset.
+
+```{r Explore}
+str(cuts)
+```
+
+Here are the explanations for variables:
+
+Santral ›smi              : Name of the power plant.
+Olay ba˛lang˝Á tarihi     : Start date time of the cut.
+Olay biti˛ tarihi         : End date/time of the cut.
+›˛letmedeki kurulu g¸Á    : Total power at the plant.
+Olay s˝ras˝ndaki kapasite : Capacity at the time of incident
+GerekÁe                   : Reason of the cut
+sure                      : Length of the cut in hours.
+kapasiteoran˝             : Proportion of the capacity at the time of the cut to max capacity.
+Type                      : Type of the plant
+
+```{r Capacity of Plants based on type}
+cuts %>%
+  group_by(Type) %>%
+  summarize(Mean=mean(›˛letmedeki.Kurulu.G¸Á)) %>%
+  ggplot(., aes(x=reorder(Type, -Mean), y=Mean, fill=Type))+
+    geom_bar(stat="identity")+
+    labs(x="Plant Type", y="Power Output MWe", title="Average Power Output Based on Plant Type in Turkey")+
+    theme_light()+
+    scale_fill_brewer(palette="Greens")+
+    theme(legend.position="none")
+```
+
