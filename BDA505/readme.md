@@ -10,7 +10,7 @@ This folder is dedicated to our group project under the framework of BDA505 cour
 
 We will be using Airbnb dataset scraped via Inside Airbnb(http://insideairbnb.com/about.html) which is aiming to contribute the debate about how Airbnb is used in cities. Data is scraped in November so the datas here are more or less updated. Our datas are 970MB in total (unzipped) and divided into two main tables(one with listing and another one with availability). Below you can find the description variables.
 
-Data has slightly over 100.000 observations at the listings table and several million observation at the calendar (not imported to any other platform then Excel yet which could not handle the data).
+Data has slightly over 100.000 observations at the listings table and several million observation at the calendar. Calendar tables are not imported to any other platform then Excel yet which could not handle the data. For the same reason and its large size, we could not upload them to github also. Here can be reached:http://insideairbnb.com/get-the-data.html
 
 ```{r}
 
