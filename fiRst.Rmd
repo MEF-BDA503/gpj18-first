@@ -20,6 +20,8 @@ library(stringr)
 library(data.table)
 library(kableExtra)
 library(splitstackshape)
+library(grid)
+library(gridExtra)
 ```
 
 ## Dataset Overview
@@ -56,17 +58,19 @@ str(cuts)
 cuts$Start.Date <- dmy_hm(cuts$Start.Date)
 cuts$End.Date<- dmy_hm(cuts$End.Date)
 # Turn power capacity variables into numeric
-cuts$Established.Power <- str_replace(cuts$Established.Power,"[,\\.]","") 
-cuts$Power.atOutage <- str_replace(cuts$Power.atOutage,"[,\\.]","") 
+cuts$Established.Power <- str_replace(cuts$Established.Power,"[:punct:]","") 
+cuts$Power.atOutage <- str_replace(cuts$Power.atOutage,"[:punct:]","") 
+cuts$Established.Power <- str_replace(cuts$Established.Power,",","") 
+cuts$Power.atOutage <- str_replace(cuts$Power.atOutage,",","")
 cuts$Established.Power <- as.factor(cuts$Established.Power)
 cuts$Power.atOutage <- as.factor(cuts$Power.atOutage)
 cuts$Established.Power <-as.numeric(levels(cuts$Established.Power))[cuts$Established.Power]
 cuts$Power.atOutage <-as.numeric(levels(cuts$Power.atOutage))[cuts$Power.atOutage]
 
-#cuts[c("Established.Power","Power.atOutage")]<-cuts[c("Established.Power","Power.atOutage")]/100
+cuts[c("Established.Power","Power.atOutage")]<-cuts[c("Established.Power","Power.atOutage")]/100
 # Removing data that contains NA's.
 cuts <- na.omit(cuts)
-#Drop UEVÃ‡B column, we do not think it will be any help for analysis.
+#Drop UEVÇB column, we do not think it will be any help for analysis.
 cuts <- subset(cuts, select=-UEVCB)
 # Let's check the data for yearly total cuts.
 yearly_cuts <- cuts %>% group_by(year=floor_date(Start.Date,"year")) %>% summarize(Start.Date=n())
@@ -89,17 +93,16 @@ ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(yea
 The database has mostly text based data. Initial overview of the database shows a lot of errors, some of which come from localization problems, others simply misspelled. In this part, we've attempted to make it more tidy by making plant names more distinct, cut reasons more clear.
 
 ```{r New Variables For Calculations}
-#Adding sÃ¼re variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
+#Adding süre variable as duration of the cuts as hours and capacity usage ratio at time of cut as capacity usage's ratio to total capacity.
 
 cuts <- cuts %>% mutate(sure = difftime(End.Date,Start.Date,units="hours")) %>% mutate(kapasiteorani = Power.atOutage / Established.Power)
-cuts$kapasiteorani <- percent(cuts$kapasiteorani)
+#cuts$kapasiteorani <- percent(cuts$kapasiteorani)
 # Make all strings lower case so that can be cleaned easier.
 cuts <- cuts %>% mutate_at(.vars=c("Plant.Name", "Reason"), funs(tolower)) 
 
 #With new variables let's see our data.
 kable(cuts[1:5,]) %>%
   kable_styling(bootstrap_options = "striped", full_width = F)
-
 ```
 
 ```{r Wrangle}
@@ -114,28 +117,28 @@ for (ind in uniqueNames){
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
 #Fixing detected string issues.
 cuts$Plant.Name <- cuts$Plant.Name %>% 
-  str_replace_all("[Ä°Ä±]", "i") %>%
+  str_replace_all("[Ýý]", "i") %>%
   str_replace_all("enerj.sa", "enerjisa") %>%
-  str_replace_all("yenikÃ¶y ts", "yenikÃ¶y tes") %>%
+  str_replace_all("yeniköy ts", "yeniköy tes") %>%
   str_replace_all("^ova elektrik", "gebze ova elektrik") %>%
-  str_replace_all("yataÄŸan .*", "yataÄŸan tes") %>%
-  str_replace_all("kÃ¶klÃ¼ce$", "kÃ¶klÃ¼ce hes") %>%
+  str_replace_all("yataðan .*", "yataðan tes") %>%
+  str_replace_all("köklüce$", "köklüce hes") %>%
   str_replace_all(".* entek", "entek") %>%
-  str_replace_all("kÃ¼rtÃ¼n-hes", "kÃ¼rtÃ¼n hes") %>%
+  str_replace_all("kürtün-hes", "kürtün hes") %>%
   str_replace_all("^rwe_turcas_guney", "denizli rwe_turcas_guney") %>%
-  str_replace_all("tekirdaÄŸ santrali.*", "modern enerji tekirdaÄŸ santrali") %>%
-  str_replace_all("karadaÄŸ$", "karadaÄŸ res") %>%
+  str_replace_all("tekirdað santrali.*", "modern enerji tekirdað santrali") %>%
+  str_replace_all("karadað$", "karadað res") %>%
   str_replace_all(".?menzelet( hes)?", "menzelet hes") %>%
   str_replace_all("\\.", "") %>%
-  str_replace_all("hidro(\\s?elektrik santral[Ä±i]| e\\.?s)", " hes") %>%
-  str_replace_all("(termik santral[Ä±i]|\\sts\\s?)", " tes") %>%
-  str_replace_all("tunÃ§bilektes", "tunÃ§bilek tes") %>%
-  str_replace_all("d.*(k.*)?Ã§.*(s.*)?", "dgkÃ§") %>%
+  str_replace_all("hidro(\\s?elektrik santral[ýi]| e\\.?s)", " hes") %>%
+  str_replace_all("(termik santral[ýi]|\\sts\\s?)", " tes") %>%
+  str_replace_all("tunçbilektes", "tunçbilek tes") %>%
+  str_replace_all("d.*(k.*)?ç.*(s.*)?", "dgkç") %>%
   str_replace_all("jeotermal (e.*s.*)", "jes")
   
 cuts$Reason <- cuts$Reason %>%
-  str_replace_all("[Ä°Ä±]", "i") %>%
-  str_replace_all("t(.r|r.)b.n", "tÃ¼rbin") %>%
+  str_replace_all("[Ýý]", "i") %>%
+  str_replace_all("t(.r|r.)b.n", "türbin") %>%
   str_replace_all("ar.zas.?.?", "ariza") %>%
   str_replace_all("so.utma", "sogutma") %>%
   str_replace_all("(?<!\\d)\\.", "") %>%
@@ -143,7 +146,7 @@ cuts$Reason <- cuts$Reason %>%
   str_replace_all("reg.lat.r", "regulator")
 ```
 
-In order to categorise te reasons, we performed a word count GerekÃ§e column, laying out most encountered words.
+In order to categorise te reasons, we performed a word count Gerekçe column, laying out most encountered words.
 
 ```{r Word count of cut reasons}
 gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
@@ -158,7 +161,7 @@ The abbreviations are as following:
 HES : Hydroelectricty Plant
 RES : Wind Energy Plant
 TES : Thermal Power Plant
-DGKÃ‡: Natural Gas Combined Cycle Plant
+DGKÇ: Natural Gas Combined Cycle Plant
 JES : Geothermal Energy Plant
 BES : Biomass Energy Plant
 
@@ -167,9 +170,9 @@ BES : Biomass Energy Plant
 cuts$Type <- ifelse(grepl(" hes\\s?", cuts$Plant.Name, ignore.case = T), "HES", 
          (ifelse(grepl(" res\\s?", cuts$Plant.Name, ignore.case = T), "RES",
          (ifelse(grepl(" tes\\s?", cuts$Plant.Name, ignore.case = T), "TES",
-         (ifelse(grepl(" a?d.*k.*Ã§.*(s.*)?", cuts$Plant.Name, ignore.case = T), "DGKÃ‡",
+         (ifelse(grepl(" a?d.*k.*ç.*(s.*)?", cuts$Plant.Name, ignore.case = T), "DGKÇ",
          (ifelse(grepl("(jes\\s|jeotermal)", cuts$Plant.Name, ignore.case =T), "JES",
-         (ifelse(grepl("biyokÃ¼tle", cuts$Plant.Name, ignore.case =T), "BES",       
+         (ifelse(grepl("biyokütle", cuts$Plant.Name, ignore.case =T), "BES",       
                 "Other")))))))))))
 cuts$Type <- as.factor(cuts$Type)
 ```
@@ -184,39 +187,44 @@ str(cuts)
 
 Here are the explanations for variables:
 
-Santral Ä°smi              : Name of the power plant.
-Olay baÅŸlangÄ±Ã§ tarihi     : Start date time of the cut.
-Olay bitiÅŸ tarihi         : End date/time of the cut.
-Ä°ÅŸletmedeki kurulu gÃ¼Ã§    : Total power at the plant.
-Olay sÄ±rasÄ±ndaki kapasite : Capacity at the time of incident
-GerekÃ§e                   : Reason of the cut
+Santral Ýsmi              : Name of the power plant.
+Olay baþlangýç tarihi     : Start date time of the cut.
+Olay bitiþ tarihi         : End date/time of the cut.
+Ýþletmedeki kurulu güç    : Total power at the plant.
+Olay sýrasýndaki kapasite : Capacity at the time of incident
+Gerekçe                   : Reason of the cut
 sure                      : Length of the cut in hours.
 kapasiteorani             : Proportion of the capacity at the time of the cut to max capacity.
 Type                      : Type of the plant
 
 ```{r Capacity of Plants based on type}
 cuts %>%
+  select(Type, Plant.Name, Established.Power) %>%
+  distinct(Plant.Name, Type, Established.Power) %>%
   group_by(Type) %>%
-  summarize(Mean=mean(Established.Power)) %>%
-  ggplot(., aes(x=reorder(Type, -Mean), y=Mean, fill=Type))+
-    geom_bar(stat="identity")+
-    labs(x="Plant Type", y="Power Output MWe", title="Average Power Output Based on Plant Type in Turkey")+
+  summarize(Mean=mean(Established.Power), Total=sum(Established.Power)) %>%
+    ggplot(.)+
+    geom_bar(aes(x=reorder(Type, -Mean), y=Mean, fill=Type), stat="identity")+
+    geom_text(aes(x=Type, y=Total/100, label=signif(Total, 2)))+
+    labs(x="", y="Average Power Output MWe", title="Power Output Based on Plant Type in Turkey", x="Plant Type")+
     theme_light()+
     scale_fill_brewer(palette="Greens")+
-    theme(legend.position="none")
+    theme(legend.position="none")+
+    scale_y_continuous(sec.axis=sec_axis(~.*100, name="Total Power Output MWe"))
 ```
+While the average capacity of Thermal and NGCC plants are much higher than other plant types, Hydroelectricity plants provide majority of the energy demand of Turkey. 
 
 There are two types of cuts at the overall level. Either due to a malfunction or due to planned maintenance. Let's separate them according to type of cut. We searched for words "bakim" at the reason of cut and assigned "Planned Maintenance" as variable to a new column. All others are assigned "Malfunction".
 
 ```{r Types of Cuts}
 bakim <- c("bakim","bakim")
 cuts <- cuts%>% mutate(TypeofCut= ifelse(str_detect(Reason,paste(bakim,collapse="|")),"Planned Maintenance","Malfunction"))
-
 ```
 
 Our histogram that shows distribution of the cuts durations looks messy due to outliers. Here is a quick workaround by fixing outliers to a maximum value inspired by https://edwinth.github.io/blog/outlier-bin/. Same person has a nice package to deal with such situations, however its dependencies does not work with Shiny.
 
 It looks like number of cuts are mostly between 0-5 hour with some outliers. Looks like most malfunctions are solved in less than 5 hours.When we look at the capacity usage ratio at the malfunctions, there is a stack between 0-10%. However except that distribution is close to normal.
+
 ```{r Visualizing Duration of Cuts and Capacity Usage Ratio According to Cut Type}
 cuts %>% mutate(sure_outlierfixed = ifelse(sure > 24, 24, sure))%>%
 ggplot(aes(x=sure_outlierfixed))+
@@ -229,9 +237,31 @@ ggplot(cuts,aes(x=kapasiteorani))+
   geom_histogram()+
   facet_wrap(~TypeofCut)+
     scale_x_continuous(limits = c(0,1))
-
-
 ```
 
+```{r Malfunction Count}
+#Gather plants that reported more than 1000 malfunctions in the last 6 years
+m_count <- cuts %>%
+  filter(TypeofCut=="Malfunction") %>%
+  group_by(Plant.Name) %>%
+  summarize(m_count=n()) %>%
+  arrange(desc(m_count)) %>%
+  filter(m_count >= 1000)
+m_plants <- as.vector(m_count$Plant.Name)
+malf <- cuts %>%
+  filter(Plant.Name %in% m_plants, TypeofCut=="Malfunction") %>%
+  mutate(quarter=lubridate::quarter(Start.Date, with_year = T)) %>%
+  group_by(Plant.Name, quarter) %>%
+  summarize(malf=n())
+malf$quarter=as.character(malf$quarter)    
 
+ggplotly(
+ggplot(malf, aes(x=quarter))+
+  theme_bw()+
+  geom_bar(aes(y=malf, fill=Plant.Name), stat="identity")+
+  theme(legend.position = "bottom", axis.text.x = element_text(angle=90))+
+  labs(x="Quarter", y="Malfunction Count", title="Quarterly Malfunction Count of Top Frequently Malfunctioning Plants")
+)
+```
 
+When we look at the graph, we can roughly see that thermal plants make up most of the top malfunctioning plants in Turkey. 2018's 3rd quarter showed a spike in reported malfunctions, from our graph it seems like two major plants had numerous faults during this quarter.
