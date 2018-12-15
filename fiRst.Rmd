@@ -1,11 +1,13 @@
 ---
-title: "InitialAnalysis"
+title: "fiRst Group Project"
 author: "Group fiRst"
 output: html_document
 ---
 # fiRst Group Project 
 
-```{r setup, include=FALSE}
+Here are our required libraries;
+
+```{r setup, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
 library(tidyverse)
 library(readxl)
@@ -22,6 +24,7 @@ library(kableExtra)
 library(splitstackshape)
 library(grid)
 library(gridExtra)
+library(dplyr)
 ```
 
 ## Dataset Overview
@@ -41,7 +44,7 @@ Objectives of this project is as follows:
 * Finding top reasons of electricity cuts with tidy text mining.
 * Analyzing cuts vis-a-vis to capacity and total power at the power plant.
 
-```{r Getting the Data}
+```{r Getting the Data, message=FALSE}
 # Create a temporary file
 tmp<-tempfile(fileext=".csv")
 # Download file from repository to the temp file
@@ -88,7 +91,8 @@ ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(yea
   scale_fill_brewer(palette="PuBuGn")+
   theme(legend.position="none")
 ```
-# Data Wrangling
+
+# Data Preprocessing and Wrangling
 
 The database has mostly text based data. Initial overview of the database shows a lot of errors, some of which come from localization problems, others simply misspelled. In this part, we've attempted to make it more tidy by making plant names more distinct, cut reasons more clear.
 
@@ -98,7 +102,7 @@ The database has mostly text based data. Initial overview of the database shows 
 cuts <- cuts %>% mutate(sure = difftime(End.Date,Start.Date,units="hours")) %>% mutate(kapasiteorani = Power.atOutage / Established.Power)
 #cuts$kapasiteorani <- percent(cuts$kapasiteorani)
 # Make all strings lower case so that can be cleaned easier.
-cuts <- cuts %>% mutate_at(.vars=c("Plant.Name", "Reason"), funs(tolower)) 
+cuts <- cuts %>% mutate_at(.vars=c("Plant.Name", "Reason"), funs(str_to_lower(.,locale="tr")))
 
 #With new variables let's see our data.
 kable(cuts[1:5,]) %>%
@@ -146,7 +150,7 @@ cuts$Reason <- cuts$Reason %>%
   str_replace_all("reg.lat.r", "regulator")
 ```
 
-In order to categorise te reasons, we performed a word count Gerekçe column, laying out most encountered words.
+In order to categorise the reasons, we performed a word count Gerekçe column, laying out most encountered words.
 
 ```{r Word count of cut reasons}
 gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
@@ -155,30 +159,32 @@ gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
 arrange(gerekcewordcount,desc(Count))
 ```
 
-Based on the plant name, we created a new column called Type which stores the type of the plant.
+Based on the plant name, we created a new column called Plant.Type which stores the type of the plant.
 
 The abbreviations are as following:
 HES : Hydroelectricty Plant
 RES : Wind Energy Plant
 TES : Thermal Power Plant
-DGKÇ: Natural Gas Combined Cycle Plant
+DGKÇ: Natural Gas Combined Cycle Power Plant
 JES : Geothermal Energy Plant
-BES : Biomass Energy Plant
+BES : Biomass Energy Plant/Biogas Plant
 
 ```{r categorise Plant type}
 #Categorising type of plants so we can do type based analysis later on.
-cuts$Type <- ifelse(grepl(" hes\\s?", cuts$Plant.Name, ignore.case = T), "HES", 
-         (ifelse(grepl(" res\\s?", cuts$Plant.Name, ignore.case = T), "RES",
-         (ifelse(grepl(" tes\\s?", cuts$Plant.Name, ignore.case = T), "TES",
-         (ifelse(grepl(" a?d.*k.*ç.*(s.*)?", cuts$Plant.Name, ignore.case = T), "DGKÇ",
-         (ifelse(grepl("(jes\\s|jeotermal)", cuts$Plant.Name, ignore.case =T), "JES",
-         (ifelse(grepl("biyokütle", cuts$Plant.Name, ignore.case =T), "BES",       
-                "Other")))))))))))
-cuts$Type <- as.factor(cuts$Type)
+cuts<- cuts %>%
+  mutate(Plant.Type=ifelse(grepl("hes", cuts$Plant.Name, ignore.case = T), "HES", 
+         (ifelse(grepl(" res\\s?|rüzgar", cuts$Plant.Name, ignore.case = T), "RES",
+         (ifelse(grepl("( tes\\s?|termik santral|ithal kömür|bolu göynük|eskiþehir endüstriyel|aliaða çakmaktepe|enerjisa tufanbeyli|ataer)", cuts$Plant.Name, ignore.case = T), "TES",
+         (ifelse(grepl("(d.*k.*ç.*(s.*)?|bosen|acarsoy denizli|akenerji|ambarli|m.*osb|kombine|paner|enerjisa (bandirma|kentsa)|kojsant|zorlu enerji|rwe_turcas|kojen|ugur enerji|isbirligi-enerji|gebze ova elektrik)", cuts$Plant.Name, ignore.case = T), "DGKÇ",
+         (ifelse(grepl("(jes|jeotermal)", cuts$Plant.Name, ignore.case =T), "JES",
+         (ifelse(grepl("biyokütle|biogaz", cuts$Plant.Name, ignore.case =T), "BES",       
+                "Other"))))))))))))
+cuts$Plant.Type <- as.factor(cuts$Plant.Type)
 ```
 
 # Data Analysis
 
+## Initial Exploration
 Let's take a look at our final dataset.
 
 ```{r Explore}
@@ -199,27 +205,29 @@ Type                      : Type of the plant
 
 ```{r Capacity of Plants based on type}
 cuts %>%
-  select(Type, Plant.Name, Established.Power) %>%
-  distinct(Plant.Name, Type, Established.Power) %>%
-  group_by(Type) %>%
+  select(Plant.Type, Plant.Name, Established.Power) %>%
+  distinct(Plant.Name, Plant.Type, Established.Power) %>%
+  group_by(Plant.Type) %>%
   summarize(Mean=mean(Established.Power), Total=sum(Established.Power)) %>%
     ggplot(.)+
-    geom_bar(aes(x=reorder(Type, -Mean), y=Mean, fill=Type), stat="identity")+
-    geom_text(aes(x=Type, y=Total/100, label=signif(Total, 2)))+
+    geom_bar(aes(x=reorder(Plant.Type, -Mean), y=Mean, fill=Plant.Type), stat="identity")+
+    geom_text(aes(x=Plant.Type, y=Total/100, label=signif(Total, 2)))+
     labs(x="", y="Average Power Output MWe", title="Power Output Based on Plant Type in Turkey", x="Plant Type")+
     theme_light()+
     scale_fill_brewer(palette="Greens")+
     theme(legend.position="none")+
     scale_y_continuous(sec.axis=sec_axis(~.*100, name="Total Power Output MWe"))
 ```
-While the average capacity of Thermal and NGCC plants are much higher than other plant types, Hydroelectricity plants provide majority of the energy demand of Turkey. 
 
-There are two types of cuts at the overall level. Either due to a malfunction or due to planned maintenance. Let's separate them according to type of cut. We searched for words "bakim" at the reason of cut and assigned "Planned Maintenance" as variable to a new column. All others are assigned "Malfunction".
+While the average capacity of Thermal and NGCC plants are much higher than other plant types, Hydroelectricity plants provide majority of the energy demand of Turkey. Geothermal, Wind and Bioenergy Plants have little contribution on Turkey's energy output. There are no registered Solar Energy Plants.
+
+There are two types of cuts at the overall level. Either due to a malfunction or due to a planned activity such as turnaround maintenances, tests, capacity reductions due to economic reasons or supply demand balance etc. Let's separate them according to type of cut. We searched for words that imply an planned activity at the reason of cut and assigned "Planned Activity" as variable to a new column. All others are assigned to "Malfunction".
 
 ```{r Types of Cuts}
-bakim <- c("bakim","bakim")
-cuts <- cuts%>% mutate(TypeofCut= ifelse(str_detect(Reason,paste(bakim,collapse="|")),"Planned Maintenance","Malfunction"))
+cuts <- cuts%>% mutate(TypeofCut=ifelse(grepl("(bak.m|[cç]al[ýi][sþ]ma|devreye alma|yük alma|test|planl[ýi]|devre di[sþ]i)", Reason, ignore.case = T, perl=T), "Planned Activity", "Malfunction"))
 ```
+
+## Analysis on Malfunctions
 
 Our histogram that shows distribution of the cuts durations looks messy due to outliers. Here is a quick workaround by fixing outliers to a maximum value inspired by https://edwinth.github.io/blog/outlier-bin/. Same person has a nice package to deal with such situations, however its dependencies does not work with Shiny.
 
@@ -239,6 +247,8 @@ ggplot(cuts,aes(x=kapasiteorani))+
     scale_x_continuous(limits = c(0,1))
 ```
 
+Let's see how many malfunctions the power plants have reported since late 2014.
+
 ```{r Malfunction Count}
 #Gather plants that reported more than 1000 malfunctions in the last 6 years
 m_count <- cuts %>%
@@ -257,11 +267,84 @@ malf$quarter=as.character(malf$quarter)
 
 ggplotly(
 ggplot(malf, aes(x=quarter))+
+  coord_flip()+
   theme_bw()+
   geom_bar(aes(y=malf, fill=Plant.Name), stat="identity")+
-  theme(legend.position = "bottom", axis.text.x = element_text(angle=90))+
-  labs(x="Quarter", y="Malfunction Count", title="Quarterly Malfunction Count of Top Frequently Malfunctioning Plants")
+  theme(legend.position = "bottom", legend.title = element_text("Plant Name"))+
+  labs(x="Quarter", y="Malfunction Count", title="Quarterly Fault Count of Top Frequently Malfunctioning Plants")
 )
 ```
 
-When we look at the graph, we can roughly see that thermal plants make up most of the top malfunctioning plants in Turkey. 2018's 3rd quarter showed a spike in reported malfunctions, from our graph it seems like two major plants had numerous faults during this quarter.
+
+When we look at the graph, we can roughly see that thermal plants make up most of the top malfunctioning plants in Turkey. 2018's 3rd quarter showed a spike in reported malfunctions, from our graph it seems like two major plants had numerous faults during this quarter, eren enerji and sebenoba reporting 502 and 482 cuts, respectively. 
+A power plant is a huge facility that utilizes large numbers of various equipments. A fault may occur on any of them. So, to get a more explanatory outcome, we've decided to categorise these cuts by malfunction type based on the reason written.
+
+```{r Malfunction category}
+#Categorise malfunctions
+catmalf <- cuts %>%
+  filter(TypeofCut=="Malfunction") %>%
+  mutate(Malf.Category =ifelse(grepl("(t.rb[ýi]n|g.?t.|kompr[ae]s[oö]r|pompa|fan|de[gð]irmen|vibrasyon|makin[ea]|trip|motor|govern[oöe]r|ate[sþ\\?]leme|ayar kanat?|hidrolik start|c[uü]ruf)", Reason, ignore.case = T, perl=T), "Rotating Equipment Failure",
+           (ifelse(grepl("(reg[uü]lat[oö]r|trafo|(elektrik|enerji) kesinti|so[gð]utma su.?.?|[gj]enerat[oö]r|elektriksel|154|bara|[sþ]ebeke|santral)", Reason, ignore.case = T, perl=T), "Electrical or Other Utilities Failure",   
+           (ifelse(grepl("((?<!\\w)su |k[oö\\?]m[üu\\?]r|gaz basin[çc]?)", Reason, ignore.case = T, perl=T), "Feedstock Issues",
+           (ifelse(grepl("(vana|kazan|boru|hatt[ýi]|e[þs]anjör|val(f|ve)|kablo|air preheater|ka.ak)", Reason, ignore.case = T, perl=T), "Static Equipment Failure", 
+           (ifelse(grepl("(plc|dcs|haberle[þs]me|otom[oa]syon|scada|[ei]nstr[uü]?m.{2,3} (hava|air)|[\\?i]kaz)", Reason, ignore.case = T, perl=T), "Control and Automation Systems Failure",
+           (ifelse(grepl("(bo[ðg]ulma|çiftçi|ara[çc] dü[þs]|tarim|atmosfer(ik)?|ya[gð][ýi][þs])", Reason, ignore.case = T, perl=T), "Outside Factors",
+           (ifelse(grepl("(^(sistem )?ar.za(si|nin)?( devam.)?$|^$|[uü]nite ar[ýi]za(s[iý])?)", Reason, ignore.case = T, perl=T), "Unspecified",
+                "Other"))))))))))))))
+```
+
+So now there are several different malfunction types from rotating equipments such as pumps, turbines to static equipments like pipelines and heat exchangers. Electrical or other utility based cuts are numerous too, note that electrical failures here are problems in electricity that power plant equipments use, not the electricity they produce, therefore they are counted as utilities. There are a few strange cases too, a hydroelectricity power plant shutting down due to a car falling into the dam lake is one of such cases.
+
+```{r malf_pie}
+m_by_type<- catmalf %>% 
+  group_by(Plant.Type, Malf.Category) %>%
+  filter(Plant.Type!="Other")%>%
+  count() %>%
+  ungroup()%>%
+  group_by(Plant.Type)%>%
+  mutate(perc=`n`/sum(`n`))
+
+#Plot pie charts for most occured malfunction type
+plot_ly(textposition = 'inside',
+        textinfo = 'label+percent',
+        insidetextfont = list(color = '#FFFFFF'),
+        marker = list(colors = colors,
+                      line = list(color = '#FFFFFF', width = 1))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="TES"), labels = ~Malf.Category, values = ~n,
+          name = "Thermal Energy Plant", domain = list(x = c(0, 0.35), y = c(0.50, 0.95))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="HES"), labels = ~Malf.Category, values = ~n,
+          name = "Hydroelectricity Plant", domain = list(x = c(0.35, 1), y = c(0.50, 0.95))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="RES"), labels = ~Malf.Category, values = ~n,
+          name = "Wind Energy Plant", domain = list(x = c(0, 0.35), y = c(0, 0.45))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="JES"), labels = ~Malf.Category, values = ~n,
+          name = "Geothermal Energy Plant", domain = list(x = c(0.35, 1), y = c(0, 0.45))) %>%
+  layout(title = "Malfunction Type by Plant", showlegend = F,
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = TRUE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         annotations = list(
+      list(x = 0.09 , y = 1.0, text = "Thermal Energy Plant", showarrow = F, xref='paper', yref='paper'),
+      list(x = 0.8 , y = 1.0, text = "Hydroelectricity Plant", showarrow = F, xref='paper', yref='paper'),
+      list(x = 0.1 , y = 0.47, text = "Wind Turbine", showarrow = F, xref='paper', yref='paper'),
+      list(x = 0.8 , y = 0.47, text = "Geothermal Energy Plant", showarrow = F, xref='paper', yref='paper')))
+```
+
+
+Thermal Plants have suffered from static equipment and rotating equipment failures almost in equal cases, hydroelectricty plants have had many electrical and utility issues. Being mostly comprised of rotating equipments, wind turbines' majority of problems come from rotating equipments and among the reports of geothermal plants, almost half of them were electrical or other utility problems.
+
+
+
+```{r, include=FALSE}
+otherana <- catmalf %>%
+  filter(Malf.Category=="Other")
+gerekcewordcountm <- cSplit(otherana, "Reason", sep = " ", direction = "long") %>%
+      group_by(Reason) %>%
+      summarise(Count = n())
+colors <- c('#4AC6B7', '#1972A4', '#965F8A', '#FF7070', '#C61951')
+
+```
+
+
+Refs
+
+https://plot.ly/r/bubble-charts/
+https://edwinth.github.io/blog/outlier-bin/
