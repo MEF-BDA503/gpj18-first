@@ -4,7 +4,7 @@
 
 * [Efehan Danışman](https://mef-bda503.github.io/pj18-efehandanisman/) 
 * [Batur Usta](https://mef-bda503.github.io/pj18-baturusta/) 
-* Özgür Özdemir
+* [Özgür Özdemir](https://mef-bda503.github.io/pj18-ozdemiroz/)
 
 ## Project Proposal
 
