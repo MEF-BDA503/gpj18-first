@@ -5,8 +5,6 @@
 * [Efehan Danışman](https://mef-bda503.github.io/pj18-efehandanisman/) 
 * [Batur Usta](https://mef-bda503.github.io/pj18-baturusta/) 
 * Özgür Özdemir
-* Ayça Kurtuluş
-* Asya Atik
 
 ## Project Proposal
 
@@ -33,4 +31,4 @@ Gerekçe: Reason of the cut
 - Finding top reasons of electricity cuts with tidy text mining.
 - Analyzing cuts vis-a-vis to capacity and total power at the power plant.
 
-Our initial analysis can be found [here](fiRst.html).
+Our updated analysis can be found [here](fiRst Group Project.html).
