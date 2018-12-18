@@ -1,8 +1,22 @@
 ---
 title: "fiRst Group Project"
-author: "İsmail Batur Usta / Efehan Danışman / Özgür Özdemir"
-output: html_document
+author: "Ismail Batur Usta / Efehan Danisman / Ozgur Ozdemir"
+output: 
+  html_document:
+  toc: true
+  toc_float: true
 ---
+## 0- Key Takeaways
+
+We analyzed cuts at the energy plants in Turkey and here is our results so far.
+
+* Data entry is sloopy in energy sector and even with significant effort can not be cleaned completely.
+* At 2018,either data entry became much more systematic compared to previous years or plants are worsen off in terms of performance.
+* We looked at types of those plants and seen that most of the plants are TES even though most of the electricity is produced
+by HES.
+* We compared distributions of the malfunctions and planned cuts. Their distribution by count is similar according to histogram vis-a-vis duration of the cuts and capacity ratio at the time of cut even though number of malfunction is way more than planned cuts. However when we look at a boxplot, it seems that solving planned activities takes way longer than malfunctions.
+* We also checked malfunction types extracted from the cut reason part of the data and seen that there are different reasons of malfunctions according to type of the plant.
+
 ## 1- Overview and Preparation
 
 We obtained energy plant cuts data in Turkey between 2012 and 2018 from the Energy Transparency Platform. Raw data contains 73311 rows and 7 variables.
@@ -33,6 +47,7 @@ library(plotly)
 library(treemapify)
 library(stringr)
 library(data.table)
+library(prettydoc)
 library(kableExtra)
 library(splitstackshape)
 library(grid)
@@ -81,7 +96,7 @@ yearly_cuts
 Look like there is an average of 10-12k cuts per year in the database with the exception of 2018, where the number of cuts seems to be much higher. We believe this is simply the result of transparency platform adding more data from plants or more plants started to use this database in 2018.
 
 ```{r Plot}
-# Let's put the yearly cuts into a bar grapg on raw data before we move to data cleaning.
+# Let's put the yearly cuts into a bar graph on raw data before we move to data cleaning.
 ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(year(year))))+
   geom_bar(stat="identity")+
   labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
