@@ -3,10 +3,14 @@ title: "fiRst Group Project"
 author: "Ismail Batur Usta / Efehan Danisman / Ozgur Ozdemir"
 output: 
   html_document:
-  toc: true
-  toc_float: true
+    toc: true # table of content true
+    toc_depth: 2  # upto two depths of headings (specified by #, ## and ###)
+    number_sections: true  ## if you want number sections at each table header
+    theme: united  # many options for theme, this one is my favorite.
+    highlight: tango  # specifies the syntax highlighting style
+    code_folding: hide
 ---
-## 0- Key Takeaways
+# Key Takeaways
 
 We analyzed cuts at the energy plants in Turkey and here is our results so far.
 
@@ -17,7 +21,7 @@ by HES.
 * We compared distributions of the malfunctions and planned cuts. Their distribution by count is similar according to histogram vis-a-vis duration of the cuts and capacity ratio at the time of cut even though number of malfunction is way more than planned cuts. However when we look at a boxplot, it seems that solving planned activities takes way longer than malfunctions.
 * We also checked malfunction types extracted from the cut reason part of the data and seen that there are different reasons of malfunctions according to type of the plant.
 
-## 1- Overview and Preparation
+# Overview and Preparation
 
 We obtained energy plant cuts data in Turkey between 2012 and 2018 from the Energy Transparency Platform. Raw data contains 73311 rows and 7 variables.
 
@@ -36,6 +40,7 @@ Before we start here are our required libraries;
 ```{r setup, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
 library(tidyverse)
+library(tidytext)
 library(readxl)
 library(forcats)
 library(rlang)
@@ -105,7 +110,7 @@ ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(yea
   theme(legend.position="none")
 ```
 
-# 2- Data Preprocessing and Wrangling
+# Data Preprocessing and Wrangling
 
 The datase has mostly text based data. Initial overview of the database shows a lot of errors, some of which come from localization problems, others simply misspelled. In this part, we've attempted to make it more tidy by making plant names more distinct, cut reasons more clear.
 
@@ -168,33 +173,9 @@ cuts$Reason <- cuts$Reason %>%
   str_replace_all("(?<!\\d)\\.", "") %>%
   str_replace_all(".n.te", "unite") %>%
   str_replace_all("suiu", "suyu") %>%
+   str_replace_all("ariza", "ar?za") %>%
   str_replace_all("reg.lat.r", "regulator")
 ```
-
-In order to categorise the reasons, we performed a word count for reason column, laying out most encountered words.
-
-```{r Word count of cut reasons}
-gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
-      group_by(Reason) %>%
-      summarise(Count = n())
-arrange(gerekcewordcount,desc(Count))
-```
-Let's not stop here and also visualize most frequent words in cut reason with a wordcloud.
-
-```{r Word cloud}
-#Inspired from https://georeferenced.wordpress.com/2013/01/15/rwordcloud/
-
-cutsReason.Corpus<-Corpus(VectorSource(cuts$Reason))
-cutsReason.Corpus<-tm_map(cutsReason.Corpus, PlainTextDocument)
-cutsReason.Corpus<-tm_map(cutsReason.Corpus,tolower)
-
-
-wordcloud( cutsReason.Corpus,min.freq = 5,
-          max.words=100, random.order=FALSE, rot.per=0.15, 
-          colors=brewer.pal(8, "PuOr"),scale=c(4,0.8))
-```
-
-
 Based on the plant name, we created a new column called Plant.Type which stores the type of the plant.
 
 The abbreviations are as following:
@@ -217,6 +198,54 @@ cuts<- cuts %>%
                 "Other"))))))))))))
 cuts$Plant.Type <- as.factor(cuts$Plant.Type)
 ```
+In order to categorise the reasons, we performed a word count for reason column, laying out most encountered words.
+
+```{r Word count of cut reasons}
+gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
+      group_by(Reason) %>%
+      summarise(Count = n())
+arrange(gerekcewordcount,desc(Count))
+
+gerekcewordcounttop20 <- gerekcewordcount %>% top_n(n=20)
+
+ggplot(gerekcewordcounttop20,aes(reorder(Reason,Count),Count,fill="red"))+
+  geom_bar(stat="identity")+
+  coord_flip()+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),legend.position  = "none")
+
+  
+```
+This could be advanced further via removing stop words(ex:ve) and numbers. 
+
+Let's not stop here and look for which words follow each other using n-gram analysis. We will take bi-gram anaylsis
+```{r N-gram}
+gerekce_bigram <- cuts %>% unnest_tokens(bigram, Reason, token = "ngrams", n = 2)
+
+#Here we see what words follow the other one according to plant type.
+
+bigram_count <- gerekce_bigram %>% group_by(Plant.Type) %>% count(bigram,sort=TRUE) %>% na.omit()
+bigram_count
+```
+
+Furthermore let's visualize most frequent words in cut reason with a wordcloud.
+
+```{r Word cloud}
+#Inspired from https://georeferenced.wordpress.com/2013/01/15/rwordcloud/
+
+cutsReason.Corpus<-Corpus(VectorSource(cuts$Reason))
+cutsReason.Corpus<-tm_map(cutsReason.Corpus, PlainTextDocument)
+cutsReason.Corpus<-tm_map(cutsReason.Corpus,tolower)
+
+
+
+wordcloud(cutsReason.Corpus,min.freq = 5,
+          max.words=100, random.order=FALSE, rot.per=0.15, 
+          colors=brewer.pal(8, "PuOr"),scale=c(4,0.8))
+```
+
+
+
 
 
 There are two types of cuts at the overall level. Either due to a malfunction or due to a planned activity such as turnaround maintenances, tests, capacity reductions due to economic reasons or supply demand balance etc. Let's separate them according to type of cut. We searched for words that imply an planned activity at the reason of cut and assigned "Planned Activity" as variable to a new column. All others are assigned to "Malfunction".
@@ -224,7 +253,7 @@ There are two types of cuts at the overall level. Either due to a malfunction or
 ```{r Types of Cuts}
 cuts <- cuts%>% mutate(TypeofCut=ifelse(grepl("(bak.m|[cç]al[ýi][sþ]ma|devreye alma|yük alma|test|planl[ýi]|devre di[sþ]i)", Reason, ignore.case = T, perl=T), "Planned Activity", "Malfunction"))
 ```
-# 3-Data Analysis
+# Data Analysis
 
 ## Initial Exploration
 Let's take a look at our final dataset.
@@ -413,7 +442,7 @@ plot_ly(textposition = 'inside',
 
 Thermal Plants have suffered from static equipment and rotating equipment failures almost in equal cases, hydroelectricty plants have had many electrical and utility issues. Being mostly comprised of rotating equipments, wind turbines' majority of problems come from rotating equipments and among the reports of geothermal plants, almost half of them were electrical or other utility problems.
 
-```{r shutdowns}
+```{r, shutdowns}
 catmalf %>%
   filter(Capacityratio<=0.05 & Plant.Type %in% c("HES", "TES", "DGKÇ", "JES")) %>%
   select(Established.Power, Power.atOutage, Plant.Type, Malf.Category, Duration) %>%
@@ -448,7 +477,9 @@ catmalf %>%
 
 Thermal plants have about 12 hours of average shutdown duration. A shutdown is much more costly in hydroelectric plants and thermal plants.
 
-# 4-Conclusion
+
+# Conclusion
+
 
 Refs
 
@@ -457,3 +488,5 @@ https://georeferenced.wordpress.com/2013/01/15/rwordcloud/
 https://plot.ly/r/bubble-charts/
 
 https://edwinth.github.io/blog/outlier-bin/
+
+https://www.tidytextmining.com/
