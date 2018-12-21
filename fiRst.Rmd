@@ -173,7 +173,7 @@ cuts$Reason <- cuts$Reason %>%
   str_replace_all("(?<!\\d)\\.", "") %>%
   str_replace_all(".n.te", "unite") %>%
   str_replace_all("suiu", "suyu") %>%
-   str_replace_all("ariza", "ar?za") %>%
+   str_replace_all("ar[ı?]za", "ariza") %>%
   str_replace_all("reg.lat.r", "regulator")
 ```
 Based on the plant name, we created a new column called Plant.Type which stores the type of the plant.
@@ -203,7 +203,7 @@ In order to categorise the reasons, we performed a word count for reason column,
 ```{r Word count of cut reasons}
 gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
       group_by(Reason) %>%
-      summarise(Count = n())
+      dplyr::summarise(Count = n())
 arrange(gerekcewordcount,desc(Count))
 
 gerekcewordcounttop20 <- gerekcewordcount %>% top_n(n=20)
@@ -226,6 +226,16 @@ gerekce_bigram <- cuts %>% unnest_tokens(bigram, Reason, token = "ngrams", n = 2
 
 bigram_count <- gerekce_bigram %>% group_by(Plant.Type) %>% count(bigram,sort=TRUE) %>% na.omit()
 bigram_count
+
+bigram_counttop20 <- bigram_count %>% top_n(n=20)
+ggplot(bigram_counttop20,aes(reorder(bigram,n),n,fill=n))+
+  geom_bar(stat="identity")+
+  coord_flip()+
+  facet_wrap(~Plant.Type,scales="free")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),legend.position  = "none")
+
+  
 ```
 
 Furthermore let's visualize most frequent words in cut reason with a wordcloud.
@@ -272,7 +282,7 @@ Here are the explanations for variables:
 * Reason                  : Reason of the cut
 * Duration                : Length of the cut in hours.
 * Capacityratio           : Proportion of the capacity at the time of the cut to max capacity.
-* Type                    : Type of the plant
+* Plant.Type                    : Type of the plant
 
 Below we see capacity of the plants based on types. Labels are total power output of the plants in Turkey while bars reprenset one plants average output.
 
