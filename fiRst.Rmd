@@ -413,16 +413,42 @@ plot_ly(textposition = 'inside',
 
 Thermal Plants have suffered from static equipment and rotating equipment failures almost in equal cases, hydroelectricty plants have had many electrical and utility issues. Being mostly comprised of rotating equipments, wind turbines' majority of problems come from rotating equipments and among the reports of geothermal plants, almost half of them were electrical or other utility problems.
 
-```{r, include=FALSE}
-otherana <- catmalf %>%
-  filter(Malf.Category=="Other")
-gerekcewordcountm <- cSplit(otherana, "Reason", sep = " ", direction = "long") %>%
-      group_by(Reason) %>%
-      summarise(Count = n())
-colors <- c('#4AC6B7', '#1972A4', '#965F8A', '#FF7070', '#C61951')
+```{r shutdowns}
+catmalf %>%
+  filter(Capacityratio<=0.05 & Plant.Type %in% c("HES", "TES", "DGKÇ", "JES")) %>%
+  select(Established.Power, Power.atOutage, Plant.Type, Malf.Category, Duration) %>%
+  group_by(Plant.Type, Malf.Category) %>%
+  summarise(count=n()) %>%
+  mutate(perc=count/sum(count)) %>%
+  filter(!Malf.Category %in% c("Outside Factors", "Other")) %>%
+  ggplot(., aes(x=Malf.Category, y=perc, fill=Plant.Type))+
+  geom_bar(stat="identity", position="dodge")+
+  scale_y_continuous(limits=c(0,0.4), labels=percent)+
+  theme_bw()+
+  labs(x="Source of Shutdown", y="Percentage", title="Shutdown Causes")+
+  scale_fill_brewer(palette="PuBuGn")+
+  theme(legend.position = c(0.1,0.8), legend.title = element_text("Plant Type"))+
+  scale_x_discrete(labels=c("Control and Automation", "Utilities", "Feedstock", "Rotating\nEquipment", "Static\nEquipment", "Unspecified"))
 ```
 
+Wind turbines' problems mostly came from rotating equipments, therefore there was no need putting in in our graph. Natural gas plants suffered shutdowns from rotating equipments most, most likely turbine related malfunctions. Curiously, thermal plant shutdowns usually came from static equipment, if we were to guess why, it's probably because thermal plants work at much higher temperatures, the material lifecycle is shorter than other power plants and more prone to leaks and ruptures. Geothermal and hydroelectricty plants have suffered shutdowns from electrical and utility problem.
 
+```{r Average shutdown duration, message=FALSE}
+catmalf %>%
+  filter(Capacityratio<=0.05, !Plant.Type=="Other") %>%
+  group_by(Plant.Type) %>%
+  summarise(Avg_sd=mean(Duration)) %>%
+  ggplot(aes(x=Plant.Type))+
+  geom_col(aes(y=Avg_sd, fill=Plant.Type))+
+  scale_fill_brewer(palette="Purples")+
+  theme_bw()+
+  labs(y="Shutdown Duration (hours)", x="Plant Type", title="Average Shutdown Durations")
+  
+```
+
+Thermal plants have about 12 hours of average shutdown duration. A shutdown is much more costly in hydroelectric plants and thermal plants.
+
+# 4-Conclusion
 
 Refs
 
