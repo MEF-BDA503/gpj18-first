@@ -99,6 +99,26 @@ yearly_cuts
 ```
 
 Look like there is an average of 10-12k cuts per year in the database with the exception of 2018, where the number of cuts seems to be much higher. We believe this is simply the result of transparency platform adding more data from plants or more plants started to use this database in 2018.
+```{r, Toeng}
+#Using function provided by Berk Orbay
+computer_friendlying<-function(mytext,spaceas="-"){
+  mytext<-gsub(" ",spaceas,mytext)
+  mytext<-gsub("ç","c",mytext)
+  mytext<-gsub("ş","s",mytext)
+  mytext<-gsub("ğ","g",mytext)
+  mytext<-gsub("ü","u",mytext)
+  mytext<-gsub("ö","o",mytext)
+  mytext<-gsub("ı","i",mytext)
+  mytext<-gsub("Ç","C",mytext)
+  mytext<-gsub("Ş","S",mytext)
+  mytext<-gsub("Ğ","G",mytext)
+  mytext<-gsub("Ü","U",mytext)
+  mytext<-gsub("Ö","O",mytext)
+  mytext<-gsub("İ","I",mytext)
+  return(mytext)
+}
+cuts$Reason <- computer_friendlying(cuts$Reason);
+```
 
 ```{r Plot}
 # Let's put the yearly cuts into a bar graph on raw data before we move to data cleaning.
@@ -117,14 +137,10 @@ The datase has mostly text based data. Initial overview of the database shows a 
 ```{r New Variables For Calculations}
 #Adding duration variable as duration of the cuts as hours and capacity usage ratio as capacity usage at the time of the cut's ratio to the total capacity.
 cuts <- cuts %>% mutate(Duration = difftime(End.Date,Start.Date,units="hours")) %>% mutate(Capacityratio = Power.atOutage / Established.Power)
-
 #Rounding capacity ratio to two decimals.
-
 cuts$Capacityratio <- round(cuts$Capacityratio,2)
-
 # Make all strings lower case so that can be cleaned easier.
 cuts <- cuts %>% mutate_at(.vars=c("Plant.Name", "Reason"), funs(str_to_lower(.,locale="tr")))
-
 #With new variables let's see our data.
 kable(cuts[1:5,]) %>%
   kable_styling(bootstrap_options = "striped", full_width = F)
@@ -132,7 +148,6 @@ kable(cuts[1:5,]) %>%
 
 ```{r Wrangle}
 #Detect similiar names with Fuzzy Text matching. This gives us possible pairs to be matched so that we can use str_replace_all to clean up data.
-
 uniqueNames <- unique(cuts$Plant.Name)
 name_distances <- list()
 i <- 1
@@ -141,7 +156,6 @@ for (ind in uniqueNames){
   i <- i+1
 }
 name_distances <- unique(Filter(function(x) {length(x) > 1}, name_distances))
-
 #Fixing detected string issues.
 cuts$Plant.Name <- cuts$Plant.Name %>% 
   str_replace_all("[Ýý]", "i") %>%
@@ -161,7 +175,7 @@ cuts$Plant.Name <- cuts$Plant.Name %>%
   str_replace_all("hidro(\\s?elektrik santral[ýi]| e\\.?s)", " hes") %>%
   str_replace_all("(termik santral[ýi]|\\sts\\s?)", " tes") %>%
   str_replace_all("tunçbilektes", "tunçbilek tes") %>%
-  str_replace_all("d.*(k.*)?ç.*(s.*)?", "dgkç") %>%
+  str_replace_all("d.*(k.*)?ç.*(s.*)?", "DGKC") %>%
   str_replace_all("jeotermal (e.*s.*)", "jes")
   
 cuts$Reason <- cuts$Reason %>%
@@ -182,7 +196,7 @@ The abbreviations are as following:
 * HES : Hydroelectricty Plant
 * RES : Wind Energy Plant
 * TES : Thermal Power Plant
-* DGKÇ: Natural Gas Combined Cycle Power Plant
+* DGKC: Natural Gas Combined Cycle Power Plant
 * JES : Geothermal Energy Plant
 * BES : Biomass Energy Plant/Biogas Plant
 
@@ -192,7 +206,7 @@ cuts<- cuts %>%
   mutate(Plant.Type=ifelse(grepl("hes", cuts$Plant.Name, ignore.case = T), "HES", 
          (ifelse(grepl(" res\\s?|rüzgar", cuts$Plant.Name, ignore.case = T), "RES",
          (ifelse(grepl("( tes\\s?|termik santral|ithal kömür|bolu göynük|eskiþehir endüstriyel|aliaða çakmaktepe|enerjisa tufanbeyli|ataer)", cuts$Plant.Name, ignore.case = T), "TES",
-         (ifelse(grepl("(d.*k.*ç.*(s.*)?|bosen|acarsoy denizli|akenerji|ambarli|m.*osb|kombine|paner|enerjisa (bandirma|kentsa)|kojsant|zorlu enerji|rwe_turcas|kojen|ugur enerji|isbirligi-enerji|gebze ova elektrik)", cuts$Plant.Name, ignore.case = T), "DGKÇ",
+         (ifelse(grepl("(d.*k.*ç.*(s.*)?|bosen|acarsoy denizli|akenerji|ambarli|m.*osb|kombine|paner|enerjisa (bandirma|kentsa)|kojsant|zorlu enerji|rwe_turcas|kojen|ugur enerji|isbirligi-enerji|gebze ova elektrik)", cuts$Plant.Name, ignore.case = T), "DGKC",
          (ifelse(grepl("(jes|jeotermal)", cuts$Plant.Name, ignore.case =T), "JES",
          (ifelse(grepl("biyokütle|biogaz", cuts$Plant.Name, ignore.case =T), "BES",       
                 "Other"))))))))))))
@@ -205,15 +219,12 @@ gerekcewordcount <- cSplit(cuts, "Reason", sep = " ", direction = "long") %>%
       group_by(Reason) %>%
       dplyr::summarise(Count = n())
 arrange(gerekcewordcount,desc(Count))
-
 gerekcewordcounttop20 <- gerekcewordcount %>% top_n(n=20)
-
 ggplot(gerekcewordcounttop20,aes(reorder(Reason,Count),Count,fill="red"))+
   geom_bar(stat="identity")+
   coord_flip()+
   theme_bw()+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),legend.position  = "none")
-
   
 ```
 This could be advanced further via removing stop words(ex:ve) and numbers. 
@@ -221,12 +232,9 @@ This could be advanced further via removing stop words(ex:ve) and numbers.
 Let's not stop here and look for which words follow each other using n-gram analysis. We will take bi-gram anaylsis
 ```{r N-gram}
 gerekce_bigram <- cuts %>% unnest_tokens(bigram, Reason, token = "ngrams", n = 2)
-
 #Here we see what words follow the other one according to plant type.
-
 bigram_count <- gerekce_bigram %>% group_by(Plant.Type) %>% count(bigram,sort=TRUE) %>% na.omit()
 bigram_count
-
 bigram_counttop20 <- bigram_count %>% top_n(n=20)
 ggplot(bigram_counttop20,aes(reorder(bigram,n),n,fill=n))+
   geom_bar(stat="identity")+
@@ -234,7 +242,6 @@ ggplot(bigram_counttop20,aes(reorder(bigram,n),n,fill=n))+
   facet_wrap(~Plant.Type,scales="free")+
   theme_bw()+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),legend.position  = "none")
-
   
 ```
 
@@ -242,13 +249,9 @@ Furthermore let's visualize most frequent words in cut reason with a wordcloud.
 
 ```{r Word cloud}
 #Inspired from https://georeferenced.wordpress.com/2013/01/15/rwordcloud/
-
 cutsReason.Corpus<-Corpus(VectorSource(cuts$Reason))
 cutsReason.Corpus<-tm_map(cutsReason.Corpus, PlainTextDocument)
 cutsReason.Corpus<-tm_map(cutsReason.Corpus,tolower)
-
-
-
 wordcloud(cutsReason.Corpus,min.freq = 5,
           max.words=100, random.order=FALSE, rot.per=0.15, 
           colors=brewer.pal(8, "PuOr"),scale=c(4,0.8))
@@ -322,7 +325,6 @@ ggplot(aes(x=Duration_outlierfixed))+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
   xlab("Duration with Fixed Outlier")+
   ggtitle("Distribution of Cut Duration In Terms of Hours")
-
 ggplot(cuts,aes(x=Capacityratio))+
   geom_histogram(bins=50)+
   facet_wrap(~TypeofCut)+
@@ -337,15 +339,12 @@ ggplot(cuts,aes(x=Capacityratio))+
 Another thing to see is at which type of the plants cuts take longer time to resolve. Let's see it for both cut types.
 
 ```{r, Cut Type vs. Duration}
-
 #Since we have one data point less than 0, we added Duration is bigger than 0 filter to exclude this.
-
 ggplotly <- cuts %>% mutate(Duration_outlierfixed = ifelse(Duration > 24, 24, Duration))%>% filter(Duration > 0) %>%ggplot(aes(fill=Plant.Type))+
   geom_boxplot(aes(Plant.Type,Duration_outlierfixed))+
   theme_bw()+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
   facet_grid(~TypeofCut)
-
 ggplotly(ggplotly)
 ```
 
@@ -353,9 +352,7 @@ ggplotly(ggplotly)
 Result of this plot is interesting. First it shows that cuts related to malfunctions distributed completely differently than planned cuts. It probably means that planned activities are cuts that require longer time while malfunctions are usually smaller issues to solve.
 
 ```{r, To be updated,include=FALSE}
-
 #That can be improved.Open to suggestions.
-
 cuts %>% mutate(Duration_outlierfixed = ifelse(Duration > 24, 24, Duration)) %>% 
     ggplot(aes(Capacityratio,Duration_outlierfixed,fill=Plant.Type))+
     geom_point(aes(col=Plant.Type),alpha=0.3)+
@@ -375,7 +372,6 @@ m_count <- cuts %>%
   summarize(m_count=n()) %>%
   arrange(desc(m_count)) %>%
   filter(m_count >= 1000)
-
 #Group them according to plant name and quarters.
 m_plants <- as.vector(m_count$Plant.Name)
 malf <- cuts %>%
@@ -383,7 +379,6 @@ malf <- cuts %>%
   mutate(quarter=lubridate::quarter(Start.Date, with_year = T)) %>%
   group_by(Plant.Name, quarter) %>%
   summarize(malf=n())
-
 #Visualize
 malf$quarter=as.character(malf$quarter)    
 ggplotly(
@@ -424,7 +419,6 @@ m_by_type<- catmalf %>%
   ungroup()%>%
   group_by(Plant.Type)%>%
   mutate(perc=`n`/sum(`n`))
-
 #Plot pie charts for most occured malfunction type
 plot_ly(textposition = 'inside',
         textinfo = 'label+percent',
@@ -437,8 +431,8 @@ plot_ly(textposition = 'inside',
           name = "Hydroelectricity Plant", domain = list(x = c(0.35, 1), y = c(0.50, 0.95))) %>%
   add_pie(data = subset(m_by_type, Plant.Type=="RES"), labels = ~Malf.Category, values = ~n,
           name = "Wind Energy Plant", domain = list(x = c(0, 0.35), y = c(0, 0.45))) %>%
-  add_pie(data = subset(m_by_type, Plant.Type=="JES"), labels = ~Malf.Category, values = ~n,
-          name = "Geothermal Energy Plant", domain = list(x = c(0.35, 1), y = c(0, 0.45))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="DGKC"), labels = ~Malf.Category, values = ~n,
+          name = "Natural Gas CC Plant", domain = list(x = c(0.35, 1), y = c(0, 0.45))) %>%
   layout(title = "Malfunction Type by Plant", showlegend = F,
          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = TRUE),
          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
@@ -446,7 +440,7 @@ plot_ly(textposition = 'inside',
       list(x = 0.09 , y = 1.0, text = "Thermal Energy Plant", showarrow = F, xref='paper', yref='paper'),
       list(x = 0.8 , y = 1.0, text = "Hydroelectricity Plant", showarrow = F, xref='paper', yref='paper'),
       list(x = 0.1 , y = 0.47, text = "Wind Turbine", showarrow = F, xref='paper', yref='paper'),
-      list(x = 0.8 , y = 0.47, text = "Geothermal Energy Plant", showarrow = F, xref='paper', yref='paper')))
+      list(x = 0.8 , y = 0.47, text = "Natural Gas CC Plant", showarrow = F, xref='paper', yref='paper')))
 ```
 
 
@@ -454,7 +448,7 @@ Thermal Plants have suffered from static equipment and rotating equipment failur
 
 ```{r, shutdowns}
 catmalf %>%
-  filter(Capacityratio<=0.05 & Plant.Type %in% c("HES", "TES", "DGKÇ", "JES")) %>%
+  filter(Capacityratio<=0.05 & Plant.Type %in% c("HES", "TES", "DGKC", "JES")) %>%
   select(Established.Power, Power.atOutage, Plant.Type, Malf.Category, Duration) %>%
   group_by(Plant.Type, Malf.Category) %>%
   summarise(count=n()) %>%
@@ -490,8 +484,21 @@ Thermal plants have about 12 hours of average shutdown duration. A shutdown is m
 
 # Conclusion
 
+Energy Transparency Platform's cuts data is getting more thorough and widespread over time. There are much more data entries in 2017 and 2018 than previous years. This is promising because there is a huge data analysis potential in this field. However, the data in its current form is very cumbersome to deal with, here are some key problems;
 
-Refs
+- The plant names are usually not explanatory, there are multiple versions of the same plant name.
+- No information on the plant's location is given, it could help during analysis.
+- Reason entries are riddled with grammatical errors, this part took most of our time, it was time consuming to make the data analysable.
+
+After transforming our data to become somewhat analysable, we categorised plants and malfunction types to get some insight on what kind of problems power plants in Turkey were facing. Turkey's biggest power sources are Thermal Plants and Hydroelectricity Plants, problems these type of plants were facing were more costly to us than others. The only source of information on the cuts were the in text form therefore we performed text mining to extract the categories, and also most encountered reasons. Here are a breakdown of our analysis results.
+
+-Thermal Plants usually suffer from static or rotating equipment faults while hydroelectricity plants have a lot of problems regarding electrical equipment.
+-Regardless of plant, turbine malfunctions, as expected, forms the majority of plant cuts.
+-Thermal plants have reported more cuts than any other plants.
+-Every type of plant have a different leading cause for shutdowns. 
+-Shutdowns last longer in HES' and TES'.
+
+# References
 
 https://georeferenced.wordpress.com/2013/01/15/rwordcloud/
 
@@ -500,3 +507,7 @@ https://plot.ly/r/bubble-charts/
 https://edwinth.github.io/blog/outlier-bin/
 
 https://www.tidytextmining.com/
+
+https://stackoverflow.com
+
+http://www.enerjiatlasi.com
