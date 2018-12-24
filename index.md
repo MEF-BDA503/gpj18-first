@@ -32,3 +32,8 @@ Gerekçe: Reason of the cut
 - Analyzing cuts vis-a-vis to capacity and total power at the power plant.
 
 Our updated analysis can be found [here](fiRst.html).
+
+
+## Final Report
+
+[Here](cuts_shiny.R) is the source code for our Shiny App.
