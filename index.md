@@ -36,8 +36,8 @@ Our updated analysis can be found [here](fiRst.html).
 
 ## Final Report
 
-[Here](cuts_shiny.R) is the source code for our Shiny App.
-[Here](fiRst_Final.html) is the last version of our analysis.
-[Here](slide_1.html) is our presentation.
+- [Here](cuts_shiny.R) is the source code for our Shiny App.
+- [Here](fiRst_Final.html) is the last version of our analysis.
+- [Here](slide_1.html) is our presentation.
 
 
