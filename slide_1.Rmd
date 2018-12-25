@@ -1,0 +1,253 @@
+---
+title: "fiRst Group Project"
+author: "Ismail Batur Usta / Efehan Danisman / Ozgur Ozdemir"
+output:
+  beamer_presentation: default
+  ioslides_presentation:
+    fig_height: 24
+    fig_width: 32
+    widescreen: yes
+---
+
+
+```{r setup, echo=FALSE,warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(error=TRUE)
+library(tidyverse)
+library(plotly)
+library(scales)
+library(wordcloud)
+library(tm)
+library(lubridate)
+```
+What we did? {data-width=350}
+-----------------------------------------------------------------------
+
+- We analyzed cuts at the power plants in Turkey between 2012-2018.
+- We had in total 73313 observations with 8 variables
+- We mutated new observations from the existing ones: Plant.Type, Duration of Cut, Capacity Ratio at the cut and reason of the cut.
+- We tidied the raw data using regular expressions and stringr package.
+- We used tidy text mining to analyze count of words and which word is following which word.
+- We divided cuts into two category, Malfunctions and Planned Activities and looked for their distributions.
+- We looked at differences between malfunctions and planned activities in terms of duration of the cut.
+- We looked at malfunction types, malfunction reasons and durations according to plant type.
+
+Cuts At Power Plants in Turkey(2012-2018) {data-width=650}
+-----------------------------------------------------------------------
+
+### Yearly Incidents are way higher at 2018.
+
+```{r,fig.height = 3, fig.width = 5, echo=FALSE}
+
+
+ggplot(data=yearly_cuts, aes(y=Start.Date, x=factor(year(year)), fill=factor(year(year))))+
+  geom_bar(stat="identity")+
+  labs(x="Year", y="Incident Count", title="Yearly Total Incidents")+
+  theme_light()+
+  scale_fill_brewer(palette="PuBuGn")+
+  theme(legend.position="none")
+
+
+
+```
+
+Glimpse of Cleaning {data-width=350}
+-----------------------------------------------------------------------
+
+### It was not easy
+
+cuts$Plant.Name <- cuts$Plant.Name %>% 
+  str_replace_all("[ý]", "i") %>%
+  str_replace_all("enerj.sa", "enerjisa") %>%
+  str_replace_all("yenikoy ts", "yenikoy tes") %>%
+  str_replace_all("ienikoi tes", "yenikoy tes") %>%
+  str_replace_all("^ova elektrik", "gebze ova elektrik") %>%
+  str_replace_all("yatagan .*", "yatagan tes") %>%
+  str_replace_all("kokluce$", "kokluce hes") %>%
+  str_replace_all(".* entek", "entek") %>%
+  str_replace_all("kurtun-hes", "kurtun hes") %>%
+  str_replace_all("^rwe_turcas_guney", "denizli rwe_turcas_guney") %>%
+  str_replace_all("tekirdag santrali.*", "modern enerji tekirdag santrali") %>%
+  str_replace_all("karadag", "karadag res") %>%
+  str_replace_all(".?menzelet( hes)?", "menzelet hes") %>%
+  str_replace_all("\\.", "") %>%
+  str_replace_all("hidro(\\s?elektrik santral[ýi]| e\\.?s)", " hes") %>%
+  str_replace_all("(termik santral[ýi]|\\sts\\s?)", " tes") %>%
+  str_replace_all("tuncbilektes", "tuncbilek tes") %>%
+  str_replace_all("d.*(k.*)c.*(s.*)?", "dgkc") %>%
+  str_replace_all("jeotermal (e.*s.*)", "jes")
+
+Overview of Plant Categories {data-width=350}
+-----------------------------------------------------------------------
+
+We've categorised power plants by their type, doing analysis by plant name would not yield much useful results.
+
+*HES: Hydroelectricity Plant
+
+*TES: Thermal Energy Plant
+
+*RES: Wind Energy Plant(Wind Turbines)
+
+*DGKC: Natural Gas Combined Cycle Plant
+
+*JES: Geothermal Energy Plant
+
+
+Overview of Plant Categories-cont'd. {data-width=350}
+-----------------------------------------------------------------------
+
+```{r,fig.height = 6, fig.width = 9, echo=FALSE,warning=FALSE}
+cuts %>%
+  select(Plant.Type, Plant.Name, Established.Power) %>%
+  distinct(Plant.Name, Plant.Type, Established.Power) %>%
+  group_by(Plant.Type) %>%
+  summarize(Mean=mean(Established.Power), Total=sum(Established.Power)) %>%
+    ggplot(.)+
+    geom_bar(aes(x=reorder(Plant.Type, -Mean), y=Mean, fill=Plant.Type), stat="identity")+
+    geom_text(aes(x=Plant.Type, y=Total/100, label=signif(Total, 2)))+
+    labs(x="", y="Average Power Output MWe", title="Power Output Based on Plant Type in Turkey", x="Plant Type")+
+    theme_light()+
+    scale_fill_brewer(palette="Greens")+
+    theme(legend.position="none")+
+    scale_y_continuous(sec.axis=sec_axis(~.*100, name="Total Power Output MWe"))
+```
+
+
+Cut Reason by Text Mining {data-width=350}
+-----------------------------------------------------------------------
+
+```{r,fig.height = 6, fig.width = 9, echo=FALSE}
+ggplot(bigram_counttop20,aes(reorder(bigram,n),n,fill=n))+
+  geom_bar(stat="identity")+
+  coord_flip()+
+  facet_wrap(~Plant.Type,scales="free")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),legend.position  = "none")
+```
+
+```{r,fig.height = 6, fig.width = 9, echo=FALSE}
+cuts %>%
+  select(Plant.Type, Plant.Name, Established.Power) %>%
+  distinct(Plant.Name, Plant.Type, Established.Power) %>%
+  group_by(Plant.Type) %>%
+  summarize(Mean=mean(Established.Power), Total=sum(Established.Power)) %>%
+    ggplot(.)+
+    geom_bar(aes(x=reorder(Plant.Type, -Mean), y=Mean, fill=Plant.Type), stat="identity")+
+    geom_text(aes(x=Plant.Type, y=Total/100, label=signif(Total, 2)))+
+    labs(x="", y="Average Power Output MWe", title="Power Output Based on Plant Type in Turkey", x="Plant Type")+
+    theme_light()+
+    scale_fill_brewer(palette="Greens")+
+    theme(legend.position="none")+
+    scale_y_continuous(sec.axis=sec_axis(~.*100, name="Total Power Output MWe"))
+```
+
+Cut Reason by Plant {data-width=350}
+-----------------------------------------------------------------------
+
+```{r,fig.height = 6, fig.width = 9, echo=FALSE,  warning=FALSE}
+m_by_type<- catmalf %>% 
+  group_by(Plant.Type, Malf.Category) %>%
+  filter(Plant.Type!="Other")%>%
+  count() %>%
+  ungroup()%>%
+  group_by(Plant.Type)%>%
+  mutate(perc=`n`/sum(`n`))
+#Plot pie charts for most occured malfunction type
+plot_ly(textposition = 'inside',
+        textinfo = 'label+percent',
+        insidetextfont = list(color = '#FFFFFF'),
+        marker = list(colors = colors,
+                      line = list(color = '#FFFFFF', width = 1))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="TES"), labels = m_by_type$Malf.Category, values = n,
+          name = "Thermal Energy Plant", domain = list(x = c(0, 0.35), y = c(0.50, 0.95))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="HES"), labels = m_by_type$Malf.Category, values = n,
+          name = "Hydroelectricity Plant", domain = list(x = c(0.35, 1), y = c(0.50, 0.95))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="RES"), labels = m_by_type$Malf.Category, values = n,
+          name = "Wind Energy Plant", domain = list(x = c(0, 0.35), y = c(0, 0.45))) %>%
+  add_pie(data = subset(m_by_type, Plant.Type=="DGKC"), labels = m_by_type$Malf.Category, values = n,
+          name = "Natural Gas CC Plant", domain = list(x = c(0.35, 1), y = c(0, 0.45))) %>%
+  layout(title = "Malfunction Type by Plant", showlegend = F,
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = TRUE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         annotations = list(
+      list(x = 0.09 , y = 1.0, text = "Thermal Energy Plant", showarrow = F, xref='paper', yref='paper'),
+      list(x = 0.8 , y = 1.0, text = "Hydroelectricity Plant", showarrow = F, xref='paper', yref='paper'),
+      list(x = 0.1 , y = 0.47, text = "Wind Turbine", showarrow = F, xref='paper', yref='paper'),
+      list(x = 0.8 , y = 0.47, text = "Natural Gas CC Plant", showarrow = F, xref='paper', yref='paper')))
+```
+
+Shutdown Reason by Category {data-width=350}
+-----------------------------------------------------------------------
+```{r,fig.height = 6, fig.width = 9, echo=FALSE,warning=FALSE}
+
+catmalf %>%
+  filter(Capacityratio<=0.05 & Plant.Type %in% c("HES", "TES", "DGKC", "JES")) %>%
+  select(Established.Power, Power.atOutage, Plant.Type, Malf.Category, Duration) %>%
+  group_by(Plant.Type, Malf.Category) %>%
+  summarise(count=n()) %>%
+  mutate(perc=count/sum(count)) %>%
+  filter(!Malf.Category %in% c("Outside Factors", "Other")) %>%
+  ggplot(., aes(x=Malf.Category, y=perc, fill=Plant.Type))+
+  geom_bar(stat="identity", position="dodge")+
+  scale_y_continuous(limits=c(0,0.4), labels=percent)+
+  theme_bw()+
+  labs(x="Source of Shutdown", y="Percentage", title="Shutdown Causes")+
+  scale_fill_brewer(palette="PuBuGn")+
+  theme(legend.position = c(0.1,0.8), legend.title = element_text("Plant Type"))+
+  scale_x_discrete(labels=c("Control and Automation", "Utilities", "Feedstock", "Rotating\nEquipment", "Static\nEquipment", "Unspecified"))
+```
+
+
+Cut Reason by Category {data-width=350}
+-----------------------------------------------------------------------
+```{r,fig.height = 6, fig.width = 9, echo=FALSE, warning=FALSE}
+#Gather plants that reported more than 1000 malfunctions in the last 6 years
+m_count <- cuts %>%
+  filter(TypeofCut=="Malfunction") %>%
+  group_by(Plant.Name) %>%
+  summarize(m_count=n()) %>%
+  arrange(desc(m_count)) %>%
+  filter(m_count >= 1000)
+#Group them according to plant name and quarters.
+m_plants <- as.vector(m_count$Plant.Name)
+malf <- cuts %>%
+  filter(Plant.Name %in% m_plants, TypeofCut=="Malfunction") %>%
+  mutate(quarter=lubridate::quarter(Start.Date, with_year = T)) %>%
+  group_by(Plant.Name, quarter) %>%
+  summarize(malf=n())
+#Visualize
+malf$quarter=as.character(malf$quarter)    
+ggplotly(
+ggplot(malf, aes(x=quarter))+
+  coord_flip()+
+  theme_bw()+
+  geom_bar(aes(y=malf, fill=Plant.Name), stat="identity")+
+  theme(legend.position = "bottom", legend.title = element_text("Plant Name"))+
+  labs(x="Quarter", y="Malfunction Count", title="Quarterly Fault Count of Top Frequently Malfunctioning Plants")
+)
+```
+
+
+Conclusions {data-width=350}
+-----------------------------------------------------------------------
+
+* Most time consuming part was data transformation and cleaning.
+
+* Especially in 2018, number of data entries have drastically increased.
+
+* While in average Thermal plants produce higher amounts of power, on total Hydroelectric plants' throughput is the highest.
+
+* Each type of plant have a different leading reason for shutdowns.
+
+Thanks {data-width=350}
+-----------------------------------------------------------------------
+```{r,fig.height = 6, fig.width = 9, echo=FALSE, warning=FALSE}
+
+cutsReason.Corpus<-Corpus(VectorSource(cuts$Reason))
+cutsReason.Corpus<-tm_map(cutsReason.Corpus, PlainTextDocument)
+cutsReason.Corpus<-tm_map(cutsReason.Corpus,tolower)
+
+wordcloud(cutsReason.Corpus,min.freq = 5,
+          max.words=100, random.order=FALSE, rot.per=0.25, 
+          colors=brewer.pal(8, "PuOr"),scale=c(6.5,1.3))
+          
+          ```
