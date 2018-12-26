@@ -8,7 +8,7 @@
 
 ## Project Proposal
 
-We obtained electricty cuts data in Turkey between 2012 and 2018 from the [Energy Transparency Platform](https://seffaflik.epias.com.tr/transparency/index.xhtml). Data contain 51568 rows and 7 variables. Variables are as follows:
+We obtained electricty cuts data in Turkey between 2012 and 2018 from the [Energy Transparency Platform](https://seffaflik.epias.com.tr/transparency/index.xhtml). Data contain 74036 rows and 7 variables. Variables are as follows:
 
 ```{r}
 Santral İsmi: Name of the power plant.
