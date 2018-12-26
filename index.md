@@ -11,13 +11,13 @@
 We obtained electricty cuts data in Turkey between 2012 and 2018 from the [Energy Transparency Platform](https://seffaflik.epias.com.tr/transparency/index.xhtml). Data contain 74036 rows and 7 variables. Variables are as follows:
 
 ```{r}
-Santral İsmi: Name of the power plant.
-Uzlaştırmaya Esas Veriş Çekiş Birimi (UEVÇB): Registered energy supplier name.
-Olay başlangıç tarihi: Start date time of the cut.
-Olay bitiş tarihi: End date/time of the cut.
-İşletmedeki kurulu güç: Total power at the plant.
+Santral Ismi: Name of the power plant.
+Uzlaştırmaya Esas Veriş Cekiş Birimi (UEVÇB): Registered energy supplier name.
+Olay başlangıc tarihi: Start date time of the cut.
+Olay bitis tarihi: End date/time of the cut.
+İsletmedeki kurulu güc: Total power at the plant.
 Olay sırasındaki kapasite: Capacity at the time of incident
-Gerekçe: Reason of the cut
+Gerekce: Reason of the cut
 ```
 
 ## Learning Objectives
