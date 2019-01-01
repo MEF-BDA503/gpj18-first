@@ -1,0 +1,67 @@
+---
+title: "BDA_HW"
+author: "TBA"
+date: "1 Ocak 2019"
+output: html_document
+---
+
+```{r}
+library(RPostgreSQL)
+library(tidyverse)
+```
+
+
+```{r}
+amst_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/amsterdam_listings.csv?raw=true"), encoding= "Latin-1")
+amst_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/amsterdam_reviews.csv?raw=true"), encoding= "Latin-1")
+ath_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/athens_listings.csv?raw=true"), encoding= "Latin-1")
+ath_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/athens_reviews.csv?raw=true"), encoding= "Latin-1")
+barc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_listings.csv?raw=true"), encoding= "Latin-1")
+barc_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_reviews.csv?raw=true"), encoding= "Latin-1")
+ist_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/istanbul_listings.csv?raw=true"), encoding= "Latin-1")
+ist_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/istanbul_reviews.csv?raw=true"), encoding= "Latin-1")
+#Þimdilik lokalden yükledim url ile indiremedim nedense
+istc_gz=gzfile("C:\\Users\\MSÝ\\Downloads\\calendar.csv.gz")   
+ist_cal=read.csv(istc_gz,header=T)
+nyc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/nyc_listings.csv?raw=true"), encoding= "Latin-1")
+nyc_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/nyc_reviews.csv?raw=true"), encoding= "Latin-1")
+```
+
+```{r}
+pw <- {
+  "bda505"
+}
+# loads the PostgreSQL driver
+drv <- dbDriver("PostgreSQL")
+# creates a connection to the postgres database
+# note that "con" will be used later in each connection to the database
+con <- dbConnect(drv, dbname = "postgres",
+                 host = "localhost", port = 5432,
+                 user = "postgres", password = pw)
+rm(pw) # removes the password
+ 
+# check for the cartable
+dbExistsTable(con, "cartable")
+# TRUE
+```
+```{r}
+# writes df to the PostgreSQL database "postgres", table "cartable" 
+dbWriteTable(con, "istlist", 
+             value = ist_list, append = TRUE, row.names = FALSE)
+dbWriteTable(con, "istcal", 
+             value = ist_cal, append = TRUE, row.names = FALSE)
+
+ 
+# query the data from postgreSQL 
+df_postgres <- dbGetQuery(con, "SELECT ls.price, ls.host_name, cl.date FROM istlist ls
+                                INNER JOIN istcal cl ON ls.id=cl.listing_id
+                                WHERE ls.neighbourhood = 'Besiktas' AND cl.available='t'")
+ 
+
+```
+
+```{r}
+dbDisconnect(con)
+dbUnloadDriver(drv)
+```
+
