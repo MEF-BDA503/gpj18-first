@@ -1,33 +1,78 @@
 ---
 title: "BDA_HW"
-author: "TBA"
+author: "TBD"
 date: "1 Ocak 2019"
 output: html_document
 ---
 
-```{r}
+# BDA505 Project for Group TBD
+
+Group TBD Members:
+
+Ýsmail Batur Usta
+
+Efehan Danýþman
+
+Özgür Özdemir
+
+# Project Details and Aim
+
+In this project, we used Airbnb dataset scraped via Inside Airbnb (http://insideairbnb.com/about.html) which is aiming to contribute the debate about how Airbnb is used in cities. Most of the data is scraped in November so the datas here are more or less updated. From total of 5 cities(Amsterdam, Athens, Barcelona, New York and Istanbul), our data are 970MB in total (unzipped) and divided into two main tables(one with listing and another one with availability). Gzipped files are available too. Below you can find the descriptions of variables.
+
+Data has slightly over 100.000 observations at the listings table and several million observation at the calendar. Calendar tables are imported in gzipped format whereas listings table was imported as csv. We loaded the data with necessary methods. You can find out more about the AirBnb data in http://insideairbnb.com/get-the-data.html
+
+## Data Structure
+
+### LISTINGS
+
+*id: Unique id of the house rented
+*name: Name of the house
+*host_id: Unique id of the host
+*host_name: Name of the host
+*neighbourhood_group: Neighbourhood group
+*neighbourhood: Sub-category of the neighbourhood group
+*latitude: Latitude of the house
+*longitude: Longitude of the house
+*room_type: Type of the room as a categorical variables
+*price: Price in local currency
+*minimum_nights: Minimum number of nights to stay
+*number_of_reviews: Number of reviews
+*last_review: Most recent reviews from the data scraped
+*reviews_per_month:Average reviews per month
+*calculated_host_listings_count: Number of listings of the host
+*availability_365: Availability of the place out of 365 days
+
+## AVAILABILITY
+
+*listing_id: Unique id of the house rented
+*date: date
+*available: Binary variable true or false
+*price: Price in US dollars
+
+```{r, message=FALSE, warning=FALSE}
+#Load necessary packages
 library(RPostgreSQL)
 library(tidyverse)
+#Set localization
+#Sys.setlocale(category = "LC_ALL", locale = "Turkish")
 ```
 
 
-```{r}
-amst_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/amsterdam_listings.csv?raw=true"), encoding= "Latin-1")
-amst_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/amsterdam_reviews.csv?raw=true"), encoding= "Latin-1")
-ath_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/athens_listings.csv?raw=true"), encoding= "Latin-1")
-ath_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/athens_reviews.csv?raw=true"), encoding= "Latin-1")
-barc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_listings.csv?raw=true"), encoding= "Latin-1")
-barc_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_reviews.csv?raw=true"), encoding= "Latin-1")
+```{r, load_data, warning=FALSE}
+#Import csv files to R environment, as well as gzipped calendar data for Istanbul and Barcelona
+amst_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/amsterdam_listings.csv?raw=true"), encoding= "UTF-8")
+ath_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/athens_listings.csv?raw=true"), encoding= "UTF-8")
+barc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_listings.csv?raw=true"), encoding= "UTF-8")
+barc_gz <- gzfile("C:\\Users\\MSÝ\\Downloads\\calendar_barcelona.csv.gz")
+bar_cal <- read.csv(barc_gz,header=T)
 ist_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/istanbul_listings.csv?raw=true"), encoding= "Latin-1")
-ist_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/istanbul_reviews.csv?raw=true"), encoding= "Latin-1")
 #Þimdilik lokalden yükledim url ile indiremedim nedense
 istc_gz=gzfile("C:\\Users\\MSÝ\\Downloads\\calendar.csv.gz")   
 ist_cal=read.csv(istc_gz,header=T)
-nyc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/nyc_listings.csv?raw=true"), encoding= "Latin-1")
-nyc_rev<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/nyc_reviews.csv?raw=true"), encoding= "Latin-1")
+nyc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/nyc_listings.csv?raw=true"), encoding= "UTF-8")
 ```
 
-```{r}
+```{r, include=FALSE}
 pw <- {
   "bda505"
 }
@@ -41,15 +86,38 @@ con <- dbConnect(drv, dbname = "postgres",
 rm(pw) # removes the password
  
 # check for the cartable
-dbExistsTable(con, "cartable")
 # TRUE
 ```
+# Data Transformation and Cleaning
+
+The dataframes are mostly tidy, but they still need a few tweaks before going into analysis. Let's look at the structures first.
+
+```{r, glimpse}
+print("Istanbul Listings:")
+str(ist_list)
+print("Istanbul Calendar:")
+str(ist_cal)
+```
+
+The formats of the variables match, however, id's should not be integers. Also splitting dates into three columns as year, month and day would be better.
+
 ```{r}
-# writes df to the PostgreSQL database "postgres", table "cartable" 
+#Transform et
+#ID'leri charactere çevir,
+#Tarihleri ayýr
+```
+
+```{r}
+#  
 dbWriteTable(con, "istlist", 
              value = ist_list, append = TRUE, row.names = FALSE)
 dbWriteTable(con, "istcal", 
              value = ist_cal, append = TRUE, row.names = FALSE)
+dbWriteTable(con, "athlist", 
+             value = ath_list, append = TRUE, row.names = FALSE)
+dbWriteTable(con, "athcal", 
+             value = ath_cal, append = TRUE, row.names = FALSE)
+
 
  
 # query the data from postgreSQL 
