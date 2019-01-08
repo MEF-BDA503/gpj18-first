@@ -9,11 +9,11 @@ output: html_document
 
 Group TBD Members:
 
-İsmail Batur Usta
+Ãsmail Batur Usta
 
-Efehan Danışman
+Efehan DanÃ½Ã¾man
 
-Özgür Özdemir
+Ã–zgÃ¼r Ã–zdemir
 
 # Project Details and Aim
 
@@ -53,6 +53,7 @@ Data has slightly over 100.000 observations at the listings table and several mi
 #Load necessary packages
 library(RPostgreSQL)
 library(tidyverse)
+library(lubridate)
 #Set localization
 #Sys.setlocale(category = "LC_ALL", locale = "Turkish")
 ```
@@ -60,16 +61,19 @@ library(tidyverse)
 
 ```{r, load_data, warning=FALSE}
 #Import csv files to R environment, as well as gzipped calendar data for Istanbul and Barcelona
-amst_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/amsterdam_listings.csv?raw=true"), encoding= "UTF-8")
-ath_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/athens_listings.csv?raw=true"), encoding= "UTF-8")
-barc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_listings.csv?raw=true"), encoding= "UTF-8")
-barc_gz <- gzfile("C:\\Users\\MSİ\\Downloads\\calendar_barcelona.csv.gz")
-bar_cal <- read.csv(barc_gz,header=T)
+bar_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/barcelona_listings.csv?raw=true"), encoding= "UTF-8")
 ist_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/istanbul_listings.csv?raw=true"), encoding= "Latin-1")
-#Şimdilik lokalden yükledim url ile indiremedim nedense
-istc_gz=gzfile("C:\\Users\\MSİ\\Downloads\\calendar.csv.gz")   
-ist_cal=read.csv(istc_gz,header=T)
-nyc_list<- read.csv(url("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/nyc_listings.csv?raw=true"), encoding= "UTF-8")
+temp <- tempfile(fileext=".csv.gz")
+download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/calendar.csv.gz?raw=true", temp, mode='wb')
+istc_gz<-gzfile(temp, 'ist_gz.csv')
+ist_cal<-read.csv(istc_gz,header=T)
+close(istc_gz)
+# Barcelona dosyasÄ±nÄ± indirirken sÄ±kÄ±ntÄ± yaÅŸÄ±yorum, localden yÃ¼kledim ÅŸimdilik
+#temp2 <- tempfile(fileext=".csv.gz")
+#download.file("https://github.com/MEF-BDA503/gpj18-first/blob/master/BDA505/calendar_barcelona.csv.gz?raw=true", temp2, mode='wb')
+#barc_gz <- gzfile(temp2, 'barc_gz.csv')
+bar_cal <- read.csv("C:\\Users\\MSÄ°\\Desktop\\calendar.csv", header=T)
+#close(barc_gz)
 ```
 
 ```{r, include=FALSE}
@@ -84,9 +88,6 @@ con <- dbConnect(drv, dbname = "postgres",
                  host = "localhost", port = 5432,
                  user = "postgres", password = pw)
 rm(pw) # removes the password
- 
-# check for the cartable
-# TRUE
 ```
 # Data Transformation and Cleaning
 
@@ -102,9 +103,23 @@ str(ist_cal)
 The formats of the variables match, however, id's should not be integers. Also splitting dates into three columns as year, month and day would be better.
 
 ```{r}
-#Transform et
-#ID'leri charactere çevir,
-#Tarihleri ayır
+# Transform
+ist_list$id <- as.factor(ist_list$id)
+ist_list$host_id <- as.factor(ist_list$host_id)
+ist_cal$listing_id <- as.factor(ist_cal$listing_id)
+bar_list$id <- as.factor(bar_list$id)
+bar_list$host_id <- as.factor(bar_list$host_id)
+bar_cal$listing_id <- as.factor(bar_cal$listing_id)
+#Tarihleri ayÄ±r
+ist_cal$date <- ymd(ist_cal$date)
+ist_cal <- ist_cal %>%
+  mutate(year=year(date), month=month(date), day=day(date))
+ist_cal$date <- NULL
+ist_cal$price <- NULL
+bar_cal <- bar_cal %>%
+  mutate(year=year(date), month=month(date), day=day(date))
+bar_cal$date <- NULL
+bar_cal$price <- NULL
 ```
 
 ```{r}
@@ -113,10 +128,10 @@ dbWriteTable(con, "istlist",
              value = ist_list, append = TRUE, row.names = FALSE)
 dbWriteTable(con, "istcal", 
              value = ist_cal, append = TRUE, row.names = FALSE)
-dbWriteTable(con, "athlist", 
-             value = ath_list, append = TRUE, row.names = FALSE)
-dbWriteTable(con, "athcal", 
-             value = ath_cal, append = TRUE, row.names = FALSE)
+dbWriteTable(con, "barlist", 
+             value = bar_list, append = TRUE, row.names = FALSE)
+dbWriteTable(con, "barcal", 
+             value = bar_cal, append = TRUE, row.names = FALSE)
 
 
  
