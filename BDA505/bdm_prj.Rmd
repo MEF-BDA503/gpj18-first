@@ -148,3 +148,16 @@ dbDisconnect(con)
 dbUnloadDriver(drv)
 ```
 
+#Batur 9 Ocak
+#Sehirleri tabloya eklemek için
+listings <- listings %>% mutate(city = ifelse(longitude>28,"Istanbul",ifelse(longitude >4,"Amsterdam",ifelse(longitude>2, "Barcelona","New York"))))
+#Bir plot
+library(ggplot2)
+numberofflats %>%
+  filter(count > 2000) %>%
+  ggplot(., aes(neighbourhood, count))+
+  geom_col(aes(fill=city))+
+  theme_bw()+
+  theme(legend.position = "top", axis.text.x = element_text(angle=90, size = 12))+
+  labs(title = "Number of BnB flats per Neighbourhood")+
+  scale_fill_brewer(palette="Spectral")
